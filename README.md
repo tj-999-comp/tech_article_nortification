@@ -1,0 +1,2 @@
+# tech_article_nortification
+Web記事をSlackに通知するアプリケーション。
