@@ -21,6 +21,75 @@ class SummarizeArticleTests(unittest.TestCase):
         self.assertLessEqual(len(summary), 100)
         self.assertTrue(summary.endswith("…"))
 
+    def test_rule_based_summary_picks_important_sentence(self):
+        summary = app.summarize_article(
+            "Python API 認証の実装",
+            (
+                "導入です。背景説明です。"
+                "今回の要点はPython API認証の実装手順と失敗しやすい設定の確認です。"
+                "最後に補足があります。"
+            ),
+            max_length=100,
+            mode="rule",
+        )
+
+        self.assertIn("API認証", summary)
+        self.assertLessEqual(len(summary), 100)
+
+    def test_llm_mode_uses_response_content(self):
+        def fake_fetcher(method, url, **kwargs):
+            self.assertEqual(method, "POST")
+            self.assertIn("model", kwargs["body"])
+            return {
+                "choices": [
+                    {
+                        "message": {
+                            "content": "認証方式の比較と実装時の落とし穴を整理し、設定確認の要点を100字で解説。"
+                        }
+                    }
+                ]
+            }
+
+        with patch.dict(
+            "os.environ",
+            {
+                "GITHUB_MODELS_API_KEY": "dummy-token",
+                "SUMMARIZER_MODE": "llm",
+            },
+            clear=False,
+        ):
+            summary = app.summarize_article(
+                "Python API 認証の実装",
+                "本文です。" * 30,
+                max_length=100,
+                llm_fetcher=fake_fetcher,
+            )
+
+        self.assertIn("実装", summary)
+        self.assertLessEqual(len(summary), 100)
+
+    def test_llm_mode_falls_back_to_rule_when_error(self):
+        def failing_fetcher(method, url, **kwargs):
+            raise RuntimeError("network error")
+
+        with patch.dict(
+            "os.environ",
+            {
+                "GITHUB_MODELS_API_KEY": "dummy-token",
+                "SUMMARIZER_MODE": "llm",
+            },
+            clear=False,
+        ):
+            summary = app.summarize_article(
+                "Python API 認証の実装",
+                "導入です。重要なのはPython API認証の実装とテスト自動化です。",
+                max_length=100,
+                llm_fetcher=failing_fetcher,
+            )
+
+        self.assertIn("Python API 認証の実装", summary)
+        self.assertLessEqual(len(summary), 100)
+
     def test_strip_markdown_removes_links_and_code(self):
         text = app.strip_markdown("`code` [Qiita](https://qiita.com) <b>bold</b>")
         self.assertEqual(text, "Qiita bold")

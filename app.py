@@ -14,6 +14,7 @@ QIITA_API_URL = "https://qiita.com/api/v2/items"
 NOTION_QUERY_URL = "https://api.notion.com/v1/databases/{database_id}/query"
 NOTION_PAGE_URL = "https://api.notion.com/v1/pages"
 NOTION_VERSION = "2022-06-28"
+GITHUB_MODELS_URL = "https://models.inference.ai.azure.com/chat/completions"
 JST = timezone(timedelta(hours=9))
 
 
@@ -69,15 +70,157 @@ def strip_markdown(text: str) -> str:
     return cleaned.strip()
 
 
-def summarize_article(title: str, body: str, max_length: int = 100) -> str:
+def split_sentences(text: str) -> list[str]:
+    pieces = re.split(r"(?<=[。！？!?])\s+|\n+", text)
+    return [piece.strip() for piece in pieces if piece.strip()]
+
+
+def title_keywords(title: str) -> list[str]:
+    candidates = re.findall(r"[A-Za-z0-9_+#.-]+|[一-龥ぁ-んァ-ヶ]{2,}", title)
+    return [word.lower() for word in candidates if len(word) >= 2]
+
+
+def score_sentence(sentence: str, keywords: list[str]) -> int:
+    lowered = sentence.lower()
+    score = 0
+
+    matched_keywords = sum(1 for keyword in set(keywords) if keyword and keyword in lowered)
+    score += matched_keywords * 4
+
+    technical_pattern = (
+        r"API|DB|データベース|認証|テスト|性能|セキュリティ|エラー|実装|設計|"
+        r"運用|自動化|CI|CD|Python|JavaScript|TypeScript|Go|Rust|Docker|AWS|Azure|GCP"
+    )
+    if re.search(technical_pattern, sentence, flags=re.IGNORECASE):
+        score += 2
+    if re.search(r"\d", sentence):
+        score += 1
+
+    if len(sentence) < 15:
+        score -= 1
+    if len(sentence) > 120:
+        score -= 1
+    return score
+
+
+def truncate_summary(text: str, max_length: int) -> str:
+    if len(text) <= max_length:
+        return text
+    return text[: max_length - 1].rstrip() + "…"
+
+
+def summarize_article_rule_based(title: str, body: str, max_length: int = 100) -> str:
     source = strip_markdown(body)
     if not source:
-        return title[:max_length]
+        return truncate_summary(title, max_length)
 
-    candidate = f"{title}。{source}"
-    if len(candidate) <= max_length:
-        return candidate
-    return candidate[: max_length - 1].rstrip() + "…"
+    sentences = split_sentences(source)
+    if not sentences:
+        return truncate_summary(f"{title}。{source}", max_length)
+
+    keywords = title_keywords(title)
+    scored = [
+        (score_sentence(sentence, keywords), index, sentence)
+        for index, sentence in enumerate(sentences)
+    ]
+    ranked = sorted(scored, key=lambda item: (-item[0], item[1]))
+
+    selected = [sentence for _, _, sentence in ranked[:3]]
+    if not selected:
+        selected = sentences[:2]
+
+    ordered_selected = [
+        sentence for _, sentence in sorted((idx, s) for _, idx, s in ranked[:3])
+    ]
+    core = " ".join(ordered_selected or selected)
+    candidate = f"{title}。{core}"
+    return truncate_summary(candidate, max_length)
+
+
+def summarize_article_with_github_models(
+    title: str,
+    body: str,
+    max_length: int = 100,
+    *,
+    fetcher: Callable[..., dict | list] = http_json,
+) -> str:
+    api_key = os.getenv("GITHUB_MODELS_API_KEY")
+    if not api_key:
+        raise RuntimeError("Missing required environment variable: GITHUB_MODELS_API_KEY")
+
+    source = strip_markdown(body)
+    if not source:
+        return truncate_summary(title, max_length)
+
+    model = os.getenv("GITHUB_MODELS_MODEL", "openai/gpt-4.1-mini")
+    endpoint = os.getenv("GITHUB_MODELS_URL", GITHUB_MODELS_URL)
+    hint = summarize_article_rule_based(title, body, max_length=180)
+
+    response = fetcher(
+        "POST",
+        endpoint,
+        headers={"Authorization": f"Bearer {api_key}"},
+        body={
+            "model": model,
+            "messages": [
+                {
+                    "role": "system",
+                    "content": (
+                        "あなたは技術記事の要約者です。"
+                        "日本語で100字前後、事実ベースで要点のみを1文で返してください。"
+                        "出力は要約本文のみ。"
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": (
+                        f"タイトル: {title}\n"
+                        f"参考要約: {hint}\n"
+                        f"本文: {source[:3000]}"
+                    ),
+                },
+            ],
+            "temperature": 0.2,
+            "max_tokens": 220,
+        },
+    )
+
+    choices = response.get("choices") if isinstance(response, dict) else None
+    if not choices:
+        raise RuntimeError("GitHub Models response does not contain choices")
+
+    content = choices[0].get("message", {}).get("content", "")
+    if isinstance(content, list):
+        content = " ".join(
+            part.get("text", "") for part in content if isinstance(part, dict)
+        )
+    if not isinstance(content, str) or not content.strip():
+        raise RuntimeError("GitHub Models response content is empty")
+
+    normalized = re.sub(r"\s+", " ", strip_markdown(content)).strip()
+    return truncate_summary(normalized, max_length)
+
+
+def summarize_article(
+    title: str,
+    body: str,
+    max_length: int = 100,
+    *,
+    mode: str | None = None,
+    llm_fetcher: Callable[..., dict | list] = http_json,
+) -> str:
+    active_mode = (mode or os.getenv("SUMMARIZER_MODE", "rule")).lower()
+    if active_mode in {"llm", "github", "github_models"}:
+        try:
+            return summarize_article_with_github_models(
+                title,
+                body,
+                max_length=max_length,
+                fetcher=llm_fetcher,
+            )
+        except RuntimeError:
+            return summarize_article_rule_based(title, body, max_length=max_length)
+    return summarize_article_rule_based(title, body, max_length=max_length)
 
 
 def article_from_qiita_item(item: dict) -> Article:
