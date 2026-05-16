@@ -1,5 +1,8 @@
 import unittest
+import json
+import tempfile
 from datetime import datetime, timezone
+from pathlib import Path
 from urllib import parse
 from unittest.mock import patch
 
@@ -36,6 +39,7 @@ class QiitaFetchTests(unittest.TestCase):
                     "url": "https://qiita.com/example/items/1",
                     "body": "本文",
                     "user": {"id": "alice"},
+                    "likes_count": 42,
                     "created_at": "2026-05-16T00:00:00+09:00",
                     "tags": [{"name": "Python"}],
                 }
@@ -54,6 +58,33 @@ class QiitaFetchTests(unittest.TestCase):
         self.assertEqual(query["per_page"], ["5"])
         self.assertEqual(query["query"], ["created:>2026-05-09 order:likes"])
         self.assertEqual(articles[0].summary, "記事タイトル。本文")
+        self.assertEqual(articles[0].likes, 42)
+
+    def test_save_articles_snapshot_writes_json_under_articles_directory(self):
+        article = app.Article(
+            title="記事タイトル",
+            url="https://qiita.com/example/items/1",
+            summary="要約",
+            author="alice",
+            likes=42,
+            published_at="2026-05-16T00:00:00+09:00",
+            tags=["Python"],
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_dir = Path(tmpdir) / "articles"
+            output_path = app.save_articles_snapshot(
+                [article],
+                output_dir=str(output_dir),
+                now=datetime(2026, 5, 16, 0, 0, tzinfo=timezone.utc),
+            )
+
+            self.assertTrue(Path(output_path).exists())
+            self.assertTrue(str(output_path).endswith("20260516.json"))
+            data = json.loads(Path(output_path).read_text(encoding="utf-8"))
+            self.assertEqual(data["count"], 1)
+            self.assertEqual(data["articles"][0]["likes"], 42)
+            self.assertEqual(data["articles"][0]["title"], "記事タイトル")
 
 
 class SlackAndNotionTests(unittest.TestCase):
@@ -63,6 +94,7 @@ class SlackAndNotionTests(unittest.TestCase):
             url="https://qiita.com/example/items/1",
             summary="100文字程度の紹介文です。",
             author="alice",
+            likes=42,
             published_at="2026-05-16T00:00:00+09:00",
             tags=["Python", "Slack"],
         )

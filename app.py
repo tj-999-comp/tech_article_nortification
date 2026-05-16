@@ -4,6 +4,7 @@ import json
 import os
 import re
 from dataclasses import dataclass
+from pathlib import Path
 from datetime import datetime, timedelta, timezone
 from typing import Callable
 from urllib import error, parse, request
@@ -22,6 +23,7 @@ class Article:
     url: str
     summary: str
     author: str
+    likes: int
     published_at: str
     tags: list[str]
 
@@ -87,9 +89,44 @@ def article_from_qiita_item(item: dict) -> Article:
         url=item["url"],
         summary=summarize_article(title, body),
         author=item.get("user", {}).get("id", ""),
+        likes=item.get("likes_count", 0),
         published_at=item.get("created_at", ""),
         tags=tags,
     )
+
+
+def save_articles_snapshot(
+    articles: list[Article],
+    *,
+    output_dir: str = "articles",
+    now: datetime | None = None,
+) -> str:
+    reference = now.astimezone(JST) if now else datetime.now(JST)
+    directory = Path(output_dir)
+    directory.mkdir(parents=True, exist_ok=True)
+
+    output_path = directory / f"{reference.strftime('%Y%m%d')}.json"
+    payload = {
+        "fetched_at": reference.isoformat(),
+        "count": len(articles),
+        "articles": [
+            {
+                "title": article.title,
+                "url": article.url,
+                "summary": article.summary,
+                "author": article.author,
+                "likes": article.likes,
+                "published_at": article.published_at,
+                "tags": article.tags,
+            }
+            for article in articles
+        ],
+    }
+    output_path.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    return str(output_path)
 
 
 def fetch_qiita_trending_articles(
@@ -257,6 +294,7 @@ def require_env(name: str) -> str:
 def main() -> int:
     lookback_days = int(os.getenv("QIITA_LOOKBACK_DAYS", "7"))
     articles = fetch_qiita_trending_articles(lookback_days=lookback_days)
+    save_articles_snapshot(articles)
     payload = build_slack_payload(articles)
 
     if os.getenv("DRY_RUN", "").lower() in {"1", "true", "yes"}:
