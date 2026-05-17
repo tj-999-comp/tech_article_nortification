@@ -125,7 +125,7 @@ class QiitaFetchTests(unittest.TestCase):
         query = parse.parse_qs(parsed.query)
         self.assertEqual(captured["method"], "GET")
         self.assertEqual(query["per_page"], ["5"])
-        self.assertEqual(query["query"], ["created:>2026-05-09 order:likes"])
+        self.assertEqual(query["query"], ["created:>2026-05-09"])
         self.assertEqual(articles[0].summary, "記事タイトル。本文")
         self.assertEqual(articles[0].likes, 42)
 
@@ -177,6 +177,23 @@ class SlackAndNotionTests(unittest.TestCase):
         self.assertEqual(payload["blocks"][0]["type"], "header")
         self.assertIn(self.article.title, payload["blocks"][2]["text"]["text"])
         self.assertIn(self.article.summary, payload["blocks"][2]["text"]["text"])
+        self.assertIn(str(self.article.likes), payload["blocks"][3]["elements"][0]["text"])
+        self.assertIn("#Python", payload["blocks"][3]["elements"][2]["text"])
+
+    def test_save_slack_message_backup_writes_markdown(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = app.save_slack_message_backup(
+                [self.article],
+                output_dir=tmpdir,
+                now=datetime(2026, 5, 16, 0, 0, tzinfo=timezone.utc),
+            )
+
+            self.assertTrue(Path(output_path).exists())
+            self.assertTrue(str(output_path).endswith("20260516.md"))
+            content = Path(output_path).read_text(encoding="utf-8")
+            self.assertIn("1位", content)
+            self.assertIn("Likes: 42", content)
+            self.assertIn("#Python #Slack", content)
 
     def test_build_notion_page_payload_sets_tracking_fields(self):
         payload = app.build_notion_page_payload(

@@ -281,7 +281,7 @@ def fetch_qiita_trending_articles(
 ) -> list[Article]:
     reference = now.astimezone(JST) if now else datetime.now(JST)
     since = (reference - timedelta(days=lookback_days)).date().isoformat()
-    query = f"created:>{since} order:likes"
+    query = f"created:>{since}"
     url = f"{QIITA_API_URL}?{parse.urlencode({'page': 1, 'per_page': limit, 'query': query})}"
     items = fetcher("GET", url)
     return [article_from_qiita_item(item) for item in items][:limit]
@@ -292,19 +292,22 @@ def build_slack_payload(articles: list[Article], now: datetime | None = None) ->
     blocks = [
         {
             "type": "header",
-            "text": {"type": "plain_text", "text": f"Qiita人気記事トップ{len(articles)}"},
+            "text": {"type": "plain_text", "text": f"Qiitaトレンド Top {len(articles)}"},
         },
         {
             "type": "section",
             "text": {
                 "type": "mrkdwn",
-                "text": f"{reference.strftime('%Y-%m-%d')} 時点でのおすすめ記事です。",
+                "text": (
+                    f"*{reference.strftime('%Y-%m-%d')}* の注目記事です。"
+                    "順位、likes、タグを見やすく整理しています。"
+                ),
             },
         },
     ]
 
     for index, article in enumerate(articles, start=1):
-        tags = ", ".join(article.tags) if article.tags else "タグなし"
+        tags = " ".join(f"#{tag}" for tag in article.tags) if article.tags else "なし"
         blocks.extend(
             [
                 {
@@ -312,11 +315,21 @@ def build_slack_payload(articles: list[Article], now: datetime | None = None) ->
                     "text": {
                         "type": "mrkdwn",
                         "text": (
-                            f"*{index}. <{article.url}|{article.title}>*\n"
-                            f"{article.summary}\n"
-                            f"`author: {article.author or 'unknown'} / tags: {tags}`"
+                            f"*{index}位* <{article.url}|{article.title}>\n"
+                            f"> {article.summary}"
                         ),
                     },
+                },
+                {
+                    "type": "context",
+                    "elements": [
+                        {"type": "mrkdwn", "text": f":thumbsup: *{article.likes} likes*"},
+                        {
+                            "type": "mrkdwn",
+                            "text": f":bust_in_silhouette: {article.author or 'unknown'}",
+                        },
+                        {"type": "mrkdwn", "text": f":label: {tags}"},
+                    ],
                 },
                 {"type": "divider"},
             ]
@@ -326,6 +339,40 @@ def build_slack_payload(articles: list[Article], now: datetime | None = None) ->
         blocks.pop()
 
     return {"blocks": blocks}
+
+
+def save_slack_message_backup(
+    articles: list[Article],
+    *,
+    output_dir: str = "message",
+    now: datetime | None = None,
+) -> str:
+    reference = now.astimezone(JST) if now else datetime.now(JST)
+    directory = Path(output_dir)
+    directory.mkdir(parents=True, exist_ok=True)
+
+    output_path = directory / f"{reference.strftime('%Y%m%d')}.md"
+    lines = [
+        f"# Qiitaトレンド Top {len(articles)} ({reference.strftime('%Y-%m-%d')})",
+        "",
+    ]
+
+    for index, article in enumerate(articles, start=1):
+        tags = " ".join(f"#{tag}" for tag in article.tags) if article.tags else "なし"
+        lines.extend(
+            [
+                f"## {index}位: {article.title}",
+                f"- URL: {article.url}",
+                f"- Likes: {article.likes}",
+                f"- Author: {article.author or 'unknown'}",
+                f"- Tags: {tags}",
+                f"- Summary: {article.summary}",
+                "",
+            ]
+        )
+
+    output_path.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
+    return str(output_path)
 
 
 def notion_headers(token: str) -> dict[str, str]:
@@ -439,8 +486,10 @@ def main() -> int:
     articles = fetch_qiita_trending_articles(lookback_days=lookback_days)
     save_articles_snapshot(articles)
     payload = build_slack_payload(articles)
+    backup_path = save_slack_message_backup(articles)
 
     if os.getenv("DRY_RUN", "").lower() in {"1", "true", "yes"}:
+        print(f"Slack message backup saved: {backup_path}")
         print(json.dumps(payload, ensure_ascii=False, indent=2))
         return 0
 
