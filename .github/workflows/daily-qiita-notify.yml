@@ -27,6 +27,7 @@ jobs:
           NOTION_DATABASE_ID: ${{ vars.NOTION_DATABASE_ID }}
           GHUB_MODELS_API_KEY: ${{ secrets.GHUB_MODELS_API_KEY }}
           QIITA_LOOKBACK_DAYS: ${{ vars.QIITA_LOOKBACK_DAYS || '7' }}
+          PIPELINE_UNTIL_STEP: "4"
           REQUIRE_LLM_SUCCESS: "true"
           GITHUB_MODELS_MODEL: "gpt-4o-mini"
           DRY_RUN: "false"
