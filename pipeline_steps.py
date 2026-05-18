@@ -778,13 +778,11 @@ def build_notion_page_payload(
             "URL": {"url": article.url},
             "Summary": {"rich_text": notion_rich_text(article.summary)},
             "Source": {"select": {"name": "Qiita"}},
-            "Published At": {"date": {"start": article.published_at}},
-            "Notified At": {"date": {"start": notified_at.astimezone(JST).isoformat()}},
+            "PublishedAt": {"date": {"start": article.published_at}},
+            "NotifiedAt": {"date": {"start": notified_at.astimezone(JST).isoformat()}},
             "Read": {"checkbox": False},
-            "Read Date": {"date": None},
             "Helpful": {"checkbox": False},
-            "Read Again": {"checkbox": False},
-            "Author": {"rich_text": notion_rich_text(article.author)},
+            "ReadAgain": {"checkbox": False},
             "Tags": {"multi_select": [{"name": tag} for tag in article.tags]},
         },
     }
@@ -853,3 +851,4 @@ def sync_notion(articles: list[Article]) -> None:
 
 
 load_env_from_file()
+load_env_from_file("Notion.txt")
