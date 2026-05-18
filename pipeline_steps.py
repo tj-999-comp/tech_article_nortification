@@ -215,9 +215,9 @@ def summarize_article_with_github_models(
     *,
     fetcher: Callable[..., dict | list] = http_json,
 ) -> str:
-    api_key = os.getenv("GITHUB_MODELS_API_KEY")
+    api_key = os.getenv("GHUB_MODELS_API_KEY")
     if not api_key:
-        raise RuntimeError("Missing required environment variable: GITHUB_MODELS_API_KEY")
+        raise RuntimeError("Missing required environment variable: GHUB_MODELS_API_KEY")
 
     source = strip_markdown(body)
     if not source:

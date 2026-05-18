@@ -59,7 +59,7 @@ class SummarizeArticleTests(unittest.TestCase):
         with patch.dict(
             "os.environ",
             {
-                "GITHUB_MODELS_API_KEY": "dummy-token",
+                "GHUB_MODELS_API_KEY": "dummy-token",
                 "SUMMARIZER_MODE": "llm",
             },
             clear=False,
@@ -81,7 +81,7 @@ class SummarizeArticleTests(unittest.TestCase):
         with patch.dict(
             "os.environ",
             {
-                "GITHUB_MODELS_API_KEY": "dummy-token",
+                "GHUB_MODELS_API_KEY": "dummy-token",
                 "SUMMARIZER_MODE": "llm",
             },
             clear=False,
