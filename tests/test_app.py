@@ -130,10 +130,101 @@ class QiitaFetchTests(unittest.TestCase):
         parsed = parse.urlparse(captured["url"])
         query = parse.parse_qs(parsed.query)
         self.assertEqual(captured["method"], "GET")
-        self.assertEqual(query["per_page"], ["5"])
+        self.assertEqual(query["per_page"], ["100"])
         self.assertEqual(query["query"], ["created:>2026-05-09"])
         self.assertEqual(articles[0].summary, "本文")
         self.assertEqual(articles[0].likes, 42)
+
+    def test_fetch_qiita_trending_articles_matches_csv_top_20(self):
+        top_20 = [
+            ("top-01", 159, "2026-05-14T08:06:19+09:00"),
+            ("top-02", 120, "2026-05-12T09:53:08+09:00"),
+            ("top-03", 92, "2026-05-13T13:42:28+09:00"),
+            ("top-04", 86, "2026-05-14T11:03:58+09:00"),
+            ("top-05", 86, "2026-05-15T14:08:38+09:00"),
+            ("top-06", 70, "2026-05-15T14:23:36+09:00"),
+            ("top-07", 60, "2026-05-12T20:10:54+09:00"),
+            ("top-08", 55, "2026-05-13T08:58:27+09:00"),
+            ("top-09", 51, "2026-05-16T09:20:26+09:00"),
+            ("top-10", 39, "2026-05-12T09:11:46+09:00"),
+            ("top-11", 34, "2026-05-12T04:38:10+09:00"),
+            ("top-12", 33, "2026-05-14T07:40:10+09:00"),
+            ("top-13", 32, "2026-05-13T11:14:27+09:00"),
+            ("top-14", 31, "2026-05-17T12:40:01+09:00"),
+            ("top-15", 30, "2026-05-15T12:58:20+09:00"),
+            ("top-16", 29, "2026-05-16T16:46:13+09:00"),
+            ("top-17", 26, "2026-05-12T16:12:43+09:00"),
+            ("top-18", 25, "2026-05-12T02:17:30+09:00"),
+            ("top-19", 25, "2026-05-17T16:35:10+09:00"),
+            ("top-20", 22, "2026-05-13T09:34:15+09:00"),
+        ]
+
+        expected_titles = [title for title, _, _ in top_20]
+        expected_articles = [
+            {
+                "title": title,
+                "url": f"https://qiita.com/example/items/{index}",
+                "body": "本文",
+                "user": {"id": f"user{index}"},
+                "likes_count": likes,
+                "created_at": created_at,
+                "tags": [{"name": "Python"}],
+            }
+            for index, (title, likes, created_at) in enumerate(top_20, start=1)
+        ]
+        filler_items = [
+            {
+                "title": f"dummy-{index}",
+                "url": f"https://qiita.com/example/dummy/{index}",
+                "body": "本文",
+                "user": {"id": f"dummy{index}"},
+                "likes_count": 0,
+                "created_at": f"2026-05-01T00:00:{index:02d}+09:00",
+                "tags": [],
+            }
+            for index in range(220)
+        ]
+
+        captured_pages: list[int] = []
+
+        def fake_fetcher(method, url, **kwargs):
+            parsed = parse.urlparse(url)
+            query = parse.parse_qs(parsed.query)
+            captured_pages.append(int(query["page"][0]))
+            page = int(query["page"][0])
+            if page == 1:
+                return filler_items[:80] + list(reversed(expected_articles))
+            if page == 2:
+                return filler_items[100:200]
+            return []
+
+        articles = app.fetch_qiita_trending_articles(
+            lookback_days=7,
+            limit=20,
+            fetcher=fake_fetcher,
+            now=datetime(2026, 5, 18, 0, 0, tzinfo=timezone.utc),
+        )
+
+        self.assertEqual(captured_pages[:3], [1, 2, 3])
+        self.assertEqual([article.title for article in articles], expected_titles)
+        self.assertEqual(len(articles), 20)
+
+    def test_fetch_qiita_trending_articles_uses_authorization_header_when_token_set(self):
+        captured = {}
+
+        def fake_fetcher(method, url, **kwargs):
+            captured["headers"] = kwargs.get("headers")
+            return []
+
+        with patch.dict("os.environ", {"QIITA_API_TOKEN": "qiita-token"}, clear=False):
+            app.fetch_qiita_trending_articles(
+                lookback_days=7,
+                limit=1,
+                fetcher=fake_fetcher,
+                now=datetime(2026, 5, 18, 0, 0, tzinfo=timezone.utc),
+            )
+
+        self.assertEqual(captured["headers"], {"Authorization": "Bearer qiita-token"})
 
     def test_save_articles_snapshot_writes_json_under_articles_directory(self):
         article = app.Article(
@@ -218,7 +309,8 @@ class SlackAndNotionTests(unittest.TestCase):
 
     def test_build_slack_thread_summary_reply_payload_contains_all_articles(self):
         payload = app.build_slack_thread_summary_reply_payload([self.article, self.article])
-        text = payload["blocks"][0]["text"]["text"]
+        texts = [block["text"]["text"] for block in payload["blocks"]]
+        text = "\n".join(texts)
 
         self.assertIn("*1位*", text)
         self.assertIn("*2位*", text)

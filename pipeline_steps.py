@@ -309,19 +309,55 @@ def article_from_qiita_item(item: dict) -> Article:
     )
 
 
+def _fetch_qiita_items(
+    *,
+    query: str,
+    fetcher: Callable[..., dict | list] = http_json,
+) -> list[dict]:
+    items: list[dict] = []
+    page = 1
+    per_page = 100
+
+    while True:
+        url = f"{QIITA_API_URL}?{parse.urlencode({'page': page, 'per_page': per_page, 'query': query})}"
+        token = os.getenv("QIITA_API_TOKEN")
+        headers = {"Authorization": f"Bearer {token}"} if token else None
+        response = fetcher("GET", url, headers=headers)
+        page_items = response if isinstance(response, list) else []
+        if not page_items:
+            break
+        items.extend(page_items)
+        if len(page_items) < per_page:
+            break
+        page += 1
+
+    return items
+
+
+def _sort_qiita_items(items: list[dict]) -> list[dict]:
+    return sorted(
+        items,
+        key=lambda item: (
+            -(item.get("likes_count", 0) or 0),
+            item.get("created_at", ""),
+            item.get("title", ""),
+        ),
+    )
+
+
 def fetch_qiita_trending_articles(
     *,
     lookback_days: int,
-    limit: int = 5,
+    limit: int = 20,
     fetcher: Callable[..., dict | list] = http_json,
     now: datetime | None = None,
 ) -> list[Article]:
     reference = now.astimezone(JST) if now else datetime.now(JST)
     since = (reference - timedelta(days=lookback_days)).date().isoformat()
     query = f"created:>{since}"
-    url = f"{QIITA_API_URL}?{parse.urlencode({'page': 1, 'per_page': limit, 'query': query})}"
-    items = fetcher("GET", url)
-    return [article_from_qiita_item(item) for item in items][:limit]
+    items = _fetch_qiita_items(query=query, fetcher=fetcher)
+    articles = [article_from_qiita_item(item) for item in _sort_qiita_items(items)]
+    return articles[:limit]
 
 
 def save_articles_snapshot(
@@ -459,18 +495,16 @@ def _latest_file(pattern: str, output_dir: str = "articles") -> str:
 def fetch_article_info(
     *,
     lookback_days: int,
-    limit: int = 5,
+    limit: int = 20,
     fetcher: Callable[..., dict | list] = http_json,
     now: datetime | None = None,
 ) -> list[dict]:
     reference = now.astimezone(JST) if now else datetime.now(JST)
     since = (reference - timedelta(days=lookback_days)).date().isoformat()
     query = f"created:>{since}"
-    url = f"{QIITA_API_URL}?{parse.urlencode({'page': 1, 'per_page': limit, 'query': query})}"
-    items = fetcher("GET", url)
-
+    items = _fetch_qiita_items(query=query, fetcher=fetcher)
     results: list[dict] = []
-    for item in items[:limit]:
+    for item in _sort_qiita_items(items)[:limit]:
         results.append(
             {
                 "title": (item.get("title") or "").strip(),
@@ -622,28 +656,26 @@ def build_slack_thread_parent_payload(
 
 
 def build_slack_thread_summary_reply_payload(articles: list[Article]) -> dict:
-    lines: list[str] = []
+    blocks: list[dict] = []
     for index, article in enumerate(articles, start=1):
         tags = " ".join(f"#{tag}" for tag in article.tags) if article.tags else "なし"
-        lines.append(
-            (
-                f"*{index}位* <{article.url}|{article.title}>\n"
-                f"> {article.summary}\n"
-                f":thumbsup: {article.likes} likes / :bust_in_silhouette: {article.author or 'unknown'} / :label: {tags}"
-            )
-        )
-
-    return {
-        "text": f"詳細まとめ ({len(articles)}件)",
-        "blocks": [
+        blocks.append(
             {
                 "type": "section",
                 "text": {
                     "type": "mrkdwn",
-                    "text": "\n\n".join(lines),
+                    "text": (
+                        f"*{index}位* <{article.url}|{article.title}>\n"
+                        f"> {article.summary}\n"
+                        f":thumbsup: {article.likes} likes / :bust_in_silhouette: {article.author or 'unknown'} / :label: {tags}"
+                    ),
                 },
             }
-        ],
+        )
+
+    return {
+        "text": f"詳細まとめ ({len(articles)}件)",
+        "blocks": blocks,
     }
 
 
@@ -852,3 +884,4 @@ def sync_notion(articles: list[Article]) -> None:
 
 load_env_from_file()
 load_env_from_file("Notion.txt")
+load_env_from_file("Qiita.txt")

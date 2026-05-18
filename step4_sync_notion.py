@@ -7,7 +7,8 @@ from pipeline_steps import load_processed_articles, sync_notion
 
 def main() -> int:
     input_path = os.getenv("STEP2_OUTPUT")
-    articles = load_processed_articles(input_path)
+    notify_limit = int(os.getenv("QIITA_NOTIFY_LIMIT", "10"))
+    articles = load_processed_articles(input_path)[:notify_limit]
     sync_notion(articles)
     print(f"step4 complete: notion synced {len(articles)} articles")
     return 0

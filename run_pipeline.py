@@ -39,7 +39,8 @@ def main() -> int:
     selected_steps = _parse_steps(os.getenv("PIPELINE_STEPS", ""))
     dry_run = _is_true(os.getenv("DRY_RUN"))
     lookback_days = int(os.getenv("QIITA_LOOKBACK_DAYS", "7"))
-    limit = int(os.getenv("QIITA_FETCH_LIMIT", "5"))
+    limit = int(os.getenv("QIITA_FETCH_LIMIT", "20"))
+    notify_limit = int(os.getenv("QIITA_NOTIFY_LIMIT", "10"))
     summarizer_mode = os.getenv("SUMMARIZER_MODE")
     require_llm_success = _is_true(os.getenv("REQUIRE_LLM_SUCCESS", "true"))
 
@@ -63,7 +64,7 @@ def main() -> int:
             raw_path = save_raw_articles(raw_articles)
             print(f"step1 complete: {raw_path}")
         articles = summarize_and_format(
-            raw_articles,
+            raw_articles[:notify_limit],
             summarizer_mode=summarizer_mode,
             require_llm_success=require_llm_success,
         )
@@ -74,14 +75,14 @@ def main() -> int:
 
     if 3 in steps:
         if articles is None:
-            articles = load_processed_articles(processed_path)
+            articles = load_processed_articles(processed_path)[:notify_limit]
         notify_slack_thread(articles, dry_run=dry_run)
         mode = "dry-run" if dry_run else "post"
         print(f"step3 complete: {mode}")
 
     if 4 in steps:
         if articles is None:
-            articles = load_processed_articles(processed_path)
+            articles = load_processed_articles(processed_path)[:notify_limit]
         sync_notion(articles)
         print("step4 complete")
 

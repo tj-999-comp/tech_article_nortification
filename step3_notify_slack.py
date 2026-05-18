@@ -11,9 +11,10 @@ def _is_true(value: str | None) -> bool:
 
 def main() -> int:
     input_path = os.getenv("STEP2_OUTPUT")
+    notify_limit = int(os.getenv("QIITA_NOTIFY_LIMIT", "10"))
     dry_run = _is_true(os.getenv("DRY_RUN"))
 
-    articles = load_processed_articles(input_path)
+    articles = load_processed_articles(input_path)[:notify_limit]
     notify_slack_thread(articles, dry_run=dry_run)
 
     mode = "dry-run" if dry_run else "post"

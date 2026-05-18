@@ -25,6 +25,7 @@ jobs:
           SLACK_CHANNEL: ${{ vars.SLACK_CHANNEL }}
           NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
           NOTION_DATABASE_ID: ${{ vars.NOTION_DATABASE_ID }}
+          QIITA_API_TOKEN: ${{ secrets.QIITA_API_TOKEN }}
           GHUB_MODELS_API_KEY: ${{ secrets.GHUB_MODELS_API_KEY }}
           QIITA_LOOKBACK_DAYS: ${{ vars.QIITA_LOOKBACK_DAYS || '7' }}
           PIPELINE_UNTIL_STEP: "4"

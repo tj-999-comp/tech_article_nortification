@@ -12,6 +12,7 @@ from pipeline_steps import (
 
 def main() -> int:
     input_path = os.getenv("STEP1_OUTPUT")
+    notify_limit = int(os.getenv("QIITA_NOTIFY_LIMIT", "10"))
     summarizer_mode = os.getenv("SUMMARIZER_MODE")
     require_llm_success = os.getenv("REQUIRE_LLM_SUCCESS", "true").lower() in {
         "1",
@@ -21,7 +22,7 @@ def main() -> int:
 
     raw_articles = load_raw_articles(input_path)
     articles = summarize_and_format(
-        raw_articles,
+        raw_articles[:notify_limit],
         summarizer_mode=summarizer_mode,
         require_llm_success=require_llm_success,
     )

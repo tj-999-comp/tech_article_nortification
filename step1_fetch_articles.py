@@ -25,7 +25,7 @@ def cleanup_old_article_jsons(*, output_dir: str = "articles", retention_days: i
 def main() -> int:
     removed = cleanup_old_article_jsons()
     lookback_days = int(os.getenv("QIITA_LOOKBACK_DAYS", "7"))
-    limit = int(os.getenv("QIITA_FETCH_LIMIT", "5"))
+    limit = int(os.getenv("QIITA_FETCH_LIMIT", "20"))
 
     raw_articles = fetch_article_info(lookback_days=lookback_days, limit=limit)
     output_path = save_raw_articles(raw_articles)
