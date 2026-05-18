@@ -2,7 +2,12 @@ name: Daily Qiita Notification
 
 on:
   schedule:
-    - cron: "0 22 * * *"
+    # Wednesday 08:00 JST (Tuesday 23:00 UTC)
+    - cron: "0 23 * * 2"
+    # Saturday 07:00 JST (Friday 22:00 UTC)
+    - cron: "0 22 * * 5"
+    # Temporary test trigger: 2026-05-18 13:00 JST (04:00 UTC)
+    - cron: "0 4 18 5 *"
   workflow_dispatch:
 
 jobs:
