@@ -6,20 +6,26 @@ from pathlib import Path
 from urllib import parse
 from unittest.mock import patch
 
-import app
+import pipeline_steps as app
 
 
 class SummarizeArticleTests(unittest.TestCase):
-    def test_summarize_article_uses_title_and_limits_length(self):
+    def test_truncate_summary_never_hard_clips(self):
+        text = "これは最初の文です。これはとても長い二つ目の文ですが、途中で切れてはいけません。"
+        summary = app.truncate_summary(text, max_length=20)
+
+        self.assertEqual(summary, "これは最初の文です。")
+
+    def test_summarize_article_uses_body_and_limits_length(self):
         summary = app.summarize_article(
             "Python の便利な書き方",
             "# 見出し\nPython の書き方を丁寧に説明します。サンプルコードも含みます。" * 4,
             max_length=100,
         )
 
-        self.assertIn("Python の便利な書き方", summary)
+        self.assertIn("Python の書き方を丁寧に説明します", summary)
         self.assertLessEqual(len(summary), 100)
-        self.assertTrue(summary.endswith("…"))
+        self.assertTrue(summary.endswith("…") or summary.endswith("。"))
 
     def test_rule_based_summary_picks_important_sentence(self):
         summary = app.summarize_article(
@@ -87,7 +93,7 @@ class SummarizeArticleTests(unittest.TestCase):
                 llm_fetcher=failing_fetcher,
             )
 
-        self.assertIn("Python API 認証の実装", summary)
+        self.assertIn("Python API認証の実装", summary)
         self.assertLessEqual(len(summary), 100)
 
     def test_strip_markdown_removes_links_and_code(self):
@@ -126,7 +132,7 @@ class QiitaFetchTests(unittest.TestCase):
         self.assertEqual(captured["method"], "GET")
         self.assertEqual(query["per_page"], ["5"])
         self.assertEqual(query["query"], ["created:>2026-05-09"])
-        self.assertEqual(articles[0].summary, "記事タイトル。本文")
+        self.assertEqual(articles[0].summary, "本文")
         self.assertEqual(articles[0].likes, 42)
 
     def test_save_articles_snapshot_writes_json_under_articles_directory(self):
@@ -179,6 +185,44 @@ class SlackAndNotionTests(unittest.TestCase):
         self.assertIn(self.article.summary, payload["blocks"][2]["text"]["text"])
         self.assertIn(str(self.article.likes), payload["blocks"][3]["elements"][0]["text"])
         self.assertIn("#Python", payload["blocks"][3]["elements"][2]["text"])
+
+    def test_build_slack_thread_parent_payload_contains_digest(self):
+        payload = app.build_slack_thread_parent_payload(
+            [self.article],
+            now=datetime(2026, 5, 16, 0, 0, tzinfo=timezone.utc),
+        )
+
+        self.assertIn("Qiitaトレンド Top 1", payload["text"])
+        self.assertIn(self.article.title, payload["blocks"][2]["text"]["text"])
+
+    def test_post_to_slack_thread_posts_parent_and_replies(self):
+        calls: list[dict] = []
+
+        def fake_fetcher(method, url, **kwargs):
+            calls.append({"method": method, "url": url, "body": kwargs.get("body")})
+            if len(calls) == 1:
+                return {"ok": True, "ts": "123.456"}
+            return {"ok": True, "ts": f"123.456.{len(calls)}"}
+
+        app.post_to_slack_thread(
+            slack_bot_token="xoxb-test",
+            slack_channel="C12345",
+            articles=[self.article, self.article],
+            fetcher=fake_fetcher,
+        )
+
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(calls[0]["body"]["channel"], "C12345")
+        self.assertNotIn("thread_ts", calls[0]["body"])
+        self.assertEqual(calls[1]["body"]["thread_ts"], "123.456")
+
+    def test_build_slack_thread_summary_reply_payload_contains_all_articles(self):
+        payload = app.build_slack_thread_summary_reply_payload([self.article, self.article])
+        text = payload["blocks"][0]["text"]["text"]
+
+        self.assertIn("*1位*", text)
+        self.assertIn("*2位*", text)
+        self.assertIn(self.article.summary, text)
 
     def test_save_slack_message_backup_writes_markdown(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -240,7 +284,7 @@ class SlackAndNotionTests(unittest.TestCase):
             def read(self):
                 return b"ok"
 
-        with patch("app.request.urlopen", return_value=FakeResponse()):
+        with patch("pipeline_steps.request.urlopen", return_value=FakeResponse()):
             response = app.http_json("POST", "https://hooks.slack.com/services/example")
 
         self.assertEqual(response, {"raw": "ok"})

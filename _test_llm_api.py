@@ -1,6 +1,6 @@
 """GitHub Models API の手動テスト用スクリプト"""
 import os
-import app
+import pipeline_steps as app
 
 title = "DockerとKubernetesで始めるコンテナ運用入門"
 body = """
