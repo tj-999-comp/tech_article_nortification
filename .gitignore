@@ -6,3 +6,5 @@ articles/
 Notion.txt
 imgs
 Qiita.txt
+# Exclude GAS documentation
+GAS_Document.md
