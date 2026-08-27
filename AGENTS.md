@@ -2,6 +2,16 @@
 
 このプロジェクトで使用するカスタムAgents定義です。各エージェントは特定のタスク領域に特化しており、全体のオーケストレーションの下で動作します。
 
+## Portfolio作業記録の公開契約
+
+- このリポジトリは、`tj-999-comp/sandbox-pages`に作業記録を提供する生成元リポジトリである。
+- 公開用の不変な`project_id`は`tech_article_nortification`とする。
+- 公開対象は`work-records/md/work_record_###.md`と`work-records/metadata/work_record_###.yml`。番号は`001`から採番する。
+- 公開方式は`a_rendered`であり、HTML・CSS・designは生成元で管理しない。A側rendererがHTMLを生成する。
+- `Issues/Issue_###.md`は課題資料であり、作業記録の公開対象へ自動変換しない。
+- 公開要求は、検証済みcommitの固定SHA、対象basename、`project_id`を使って行う。公開リポジトリのContents write権限やtokenを取得・保存・使用しない。
+- 詳細な入力契約と公開先は、sandbox-pagesの[公開ルール](https://github.com/tj-999-comp/sandbox-pages/blob/main/projects/README.md)を正本とする。
+
 ---
 
 ## 1. qiita-fetcher
