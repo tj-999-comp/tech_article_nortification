@@ -2,6 +2,36 @@
 
 Qiita の人気記事 20 件を毎日 Slack に通知し、同じ記事リンクを Notion DB に蓄積するアプリケーションです。
 
+## Portfolio公開連携
+
+このリポジトリは、`tj-999-comp/sandbox-pages`に作業記録を提供する**生成元リポジトリ**です。公開リポジトリ側で使用する固定情報は次のとおりです。
+
+| 項目 | 値 |
+| --- | --- |
+| `project_id` | `tech_article_nortification` |
+| 公開リポジトリ | `tj-999-comp/sandbox-pages` |
+| 生成元branch | `main` |
+| 公開方式 | `a_rendered` |
+| 公開先 | `projects/tech_article_nortification/` |
+
+公開する作業記録は、次の共通構成で追加します。
+
+```text
+work-records/
+├── metadata/
+│   └── work_record_###.yml
+└── md/
+    └── work_record_###.md
+```
+
+`a_rendered`方式では、HTML・CSS・designファイルをこのリポジトリへ追加しません。metadataには`schema_version`、`title`、`date`、`project_id`、`tags`、`publish`を記録し、`project_id`は必ず`tech_article_nortification`とします。番号付き作業記録は、このリポジトリでは`work_record_001`から採番します。
+
+既存の`Issues/Issue_###.md`は課題資料であり、公開用作業記録ではありません。内容の確認とmetadata作成を行わずに、自動公開対象へ含めないでください。
+
+公開要求時は、検証済みcommitの固定SHAと対象basenameを使い、公開リポジトリのworkflowへ`project_id`、`source_commit_sha`、`target_basename`の3入力を渡します。公開リポジトリをcheckout・編集・commit・pushする権限やtokenは、このリポジトリのworkflowへ渡しません。
+
+公開契約の正本は、[sandbox-pagesの公開ルール](https://github.com/tj-999-comp/sandbox-pages/blob/main/projects/README.md)と[共通標準](https://github.com/tj-999-comp/sandbox-pages/blob/main/docs/PORTFOLIO_STANDARD.md)です。sandbox-pages側の受入・`a_rendered` renderer・手動E2Eが完了するまで、sourceは無効状態として扱います。
+
 ## できること
 
 - Qiita API から直近の人気記事を 20 件取得
