@@ -32,6 +32,20 @@ work-records/
 
 公開契約の正本は、[sandbox-pagesの公開ルール](https://github.com/tj-999-comp/sandbox-pages/blob/main/projects/README.md)と[共通標準](https://github.com/tj-999-comp/sandbox-pages/blob/main/docs/PORTFOLIO_STANDARD.md)です。sandbox-pages側の受入・`a_rendered` renderer・手動E2Eが完了するまで、sourceは無効状態として扱います。
 
+### 作業記録のsource-side検証
+
+依存パッケージなしのvalidatorで、作業記録のbasename、Markdownとmetadataの対応、metadata schema、`project_id`、日付、タグ、`publish`、危険なURL schemeを確認できます。
+
+```bash
+python3 scripts/validate_work_records.py --require-publish-false
+```
+
+`.github/workflows/validate-work-records.yml`は、mainへのpush、Pull Request、手動起動でこの検証だけを実行します。公開リポジトリへのworkflow dispatch、Secret登録、外部通知は行いません。既存の日次通知workflowは`daily-qiita-notify.yml.disabled`で無効化されているため、この検証workflowとは競合しません。
+
+### 公開要求workflowの設計
+
+公開要求を実装・実行する前に、sandbox-pages側でこのprojectのsource registry、`a_rendered` renderer、受入workflow名、手動E2Eを確定させます。要求時に渡す値は、固定値`project_id`、検証済みcommitの`source_commit_sha`、対象basename`target_basename`の3つだけとし、公開先パスやファイル名をmetadata・ユーザー入力から組み立てません。生成元からsandbox-pagesをcheckout・編集・pushせず、Contents write権限も渡しません。
+
 ## できること
 
 - Qiita API から直近の人気記事を 20 件取得

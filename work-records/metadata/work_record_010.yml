@@ -1,0 +1,9 @@
+schema_version: 1
+title: GitHub Actions定期通知の無効化
+date: "2026-06-02"
+project_id: tech_article_nortification
+tags:
+  - github-actions
+  - operations
+  - reliability
+publish: false

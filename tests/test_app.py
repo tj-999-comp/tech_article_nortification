@@ -343,7 +343,7 @@ class SlackAndNotionTests(unittest.TestCase):
         self.assertEqual(properties["URL"]["url"], self.article.url)
         self.assertFalse(properties["Read"]["checkbox"])
         self.assertFalse(properties["Helpful"]["checkbox"])
-        self.assertFalse(properties["Read Again"]["checkbox"])
+        self.assertFalse(properties["ReadAgain"]["checkbox"])
 
     def test_notion_page_exists_queries_by_url(self):
         captured = {}
