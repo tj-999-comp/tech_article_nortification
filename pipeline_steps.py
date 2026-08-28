@@ -257,13 +257,23 @@ def summarize_article_with_github_models(
     )
 
     choices = response.get("choices") if isinstance(response, dict) else None
-    if not choices:
+    if not isinstance(choices, list) or not choices:
         raise RuntimeError("GitHub Models response does not contain choices")
 
-    content = choices[0].get("message", {}).get("content", "")
+    first_choice = choices[0]
+    if not isinstance(first_choice, dict):
+        raise RuntimeError("GitHub Models response contains an invalid choice")
+
+    message = first_choice.get("message")
+    if not isinstance(message, dict):
+        raise RuntimeError("GitHub Models response contains an invalid message")
+
+    content = message.get("content", "")
     if isinstance(content, list):
         content = " ".join(
-            part.get("text", "") for part in content if isinstance(part, dict)
+            part["text"]
+            for part in content
+            if isinstance(part, dict) and isinstance(part.get("text"), str)
         )
     if not isinstance(content, str) or not content.strip():
         raise RuntimeError("GitHub Models response content is empty")
