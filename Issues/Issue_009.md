@@ -21,3 +21,38 @@ GAS の時間主導トリガーと GitHub Actions の定期実行が重なり、
 ## 今後のメモ
 - 必要であれば、GAS 側にも重複防止のガードを追加する。
 - 将来的に GitHub Actions を再開する場合は、GAS トリガーとの役割分担を再整理する。
+
+## 追記: GitHub Issue #9 手動公開E2E
+
+2026-08-28 に、Sandbox Pages への新規作業記録公開E2Eを実施した。
+
+### 対応内容
+
+- `work-records/md/work_record_014.md` と対応metadataを追加した。
+- metadataの `title` を引用付きYAMLとして修正し、A側の通常validatorで受入可能な状態にした。
+- A側のvalidatorは通常実行で通過し、Issue #9用の明示的な `publish: true` 候補を検証した。
+- Sandbox側の受入workflowは、A側validatorが返す `changed_paths` を個別にforce-stageするよう修正した。これにより、生成HTML/Markdownを公開コミットへ確実に含める。
+
+### 証跡
+
+- A側source commit: `8213927aa71770355941f133c7bac60f58e7d04b`
+- A側変更PR: #14（record追加・validator調整）、#15（metadata title修正）
+- Sandbox側staging修正PR: #67、#68
+- 最終受入E2E: `sandbox-pages` workflow run `33158737917`
+- 最終適用commit: `57830bd0738998d2856711ddcdb8078844566199`
+- publication ID: `accept-33158737917-1-tech_article_nortification-work_record_014`
+- 受入、適用、Pages build/deploy、公開URL確認、Slack通知の全ジョブが成功した。
+
+### 公開確認
+
+- [work_record_014 公開ページ](https://tj-999-comp.github.io/sandbox-pages/projects/tech_article_nortification/work_record_014.html)
+- project indexから `./work_record_014.html` の相対リンクを確認した。
+- global indexから `./tech_article_nortification/work_record_014.html` の相対リンクを確認した。
+- provenanceにはsource SHA、公開ファイルのSHA256、`notify: true` が記録されている。
+- Markdown原本リンク `md/work_record_014.md` の存在を確認した。
+
+### 後処理・制約
+
+- E2E後、Sandbox側source registryは `enabled: false` に戻した（cleanup PR #69）。公開済みrecordとprovenanceは保持している。
+- A側からSandboxへdispatchする経路は、必要なdispatch secretが未設定のためrun `33151188926` がfail-closedとなった。secretの値は記録・変更していない。最終E2Eは明示的なworkflow dispatchで完了した。
+- 作業記録にはtoken、webhook、個人情報などの秘密情報を含めていない。
