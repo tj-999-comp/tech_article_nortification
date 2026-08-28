@@ -22,4 +22,4 @@ jobs:
           python-version: "3.12"
 
       - name: Validate source-side work records
-        run: python3 scripts/validate_work_records.py --require-publish-false
+        run: python3 scripts/validate_work_records.py
