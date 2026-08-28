@@ -96,6 +96,28 @@ class SummarizeArticleTests(unittest.TestCase):
         self.assertIn("Python API認証の実装", summary)
         self.assertLessEqual(len(summary), 100)
 
+    def test_llm_mode_falls_back_to_rule_for_malformed_response(self):
+        def malformed_fetcher(method, url, **kwargs):
+            return {"choices": [{"message": None}]}
+
+        with patch.dict(
+            "os.environ",
+            {
+                "GHUB_MODELS_API_KEY": "dummy-token",
+                "SUMMARIZER_MODE": "llm",
+            },
+            clear=False,
+        ):
+            summary = app.summarize_article(
+                "Python API 認証の実装",
+                "導入です。重要なのはPython API認証の実装とテスト自動化です。",
+                max_length=100,
+                llm_fetcher=malformed_fetcher,
+            )
+
+        self.assertIn("Python API認証の実装", summary)
+        self.assertLessEqual(len(summary), 100)
+
     def test_strip_markdown_removes_links_and_code(self):
         text = app.strip_markdown("`code` [Qiita](https://qiita.com) <b>bold</b>")
         self.assertEqual(text, "Qiita bold")
@@ -343,7 +365,7 @@ class SlackAndNotionTests(unittest.TestCase):
         self.assertEqual(properties["URL"]["url"], self.article.url)
         self.assertFalse(properties["Read"]["checkbox"])
         self.assertFalse(properties["Helpful"]["checkbox"])
-        self.assertFalse(properties["Read Again"]["checkbox"])
+        self.assertFalse(properties["ReadAgain"]["checkbox"])
 
     def test_notion_page_exists_queries_by_url(self):
         captured = {}
