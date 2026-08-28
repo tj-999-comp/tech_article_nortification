@@ -1,0 +1,10 @@
+schema_version: 1
+title: Issue #9の手動公開E2E候補
+date: "2026-08-28"
+project_id: tech_article_nortification
+tags:
+  - portfolio
+  - manual-e2e
+  - github-pages
+  - provenance
+publish: true

@@ -40,7 +40,7 @@ work-records/
 python3 scripts/validate_work_records.py --require-publish-false
 ```
 
-`.github/workflows/validate-work-records.yml`は、mainへのpush、Pull Request、手動起動でこの検証だけを実行します。公開リポジトリへのworkflow dispatch、Secret登録、外部通知は行いません。既存の日次通知workflowは`daily-qiita-notify.yml.disabled`で無効化されているため、この検証workflowとは競合しません。
+`.github/workflows/validate-work-records.yml`は、mainへのpush、Pull Request、手動起動でこの構造検証だけを実行します。`publish: true`は公開要求の候補を示すだけで、公開リポジトリへのworkflow dispatch、Secret登録、外部通知は行いません。公開前に全件を無効状態で確認したい場合は、上記コマンドの`--require-publish-false`を使います。既存の日次通知workflowは`daily-qiita-notify.yml.disabled`で無効化されているため、この検証workflowとは競合しません。
 
 ### 公開要求workflow
 
@@ -52,7 +52,7 @@ python3 scripts/validate_work_records.py --require-publish-false
 
 workflowは指定SHAをcheckoutし、対象recordのMarkdown・metadataと`publish: true`を検証します。検証に失敗した場合はsandbox-pagesへdispatchせず、成功時だけ`accept-source.yml`へ3入力を渡します。cross-repository dispatch用の`SANDBOX_PAGES_DISPATCH_TOKEN`は、sandbox-pagesのActions実行だけを許可し、Contents writeを付与しないSecretとして登録してください。token、記事本文、Secret値はログへ出力しません。
 
-受入側の`a_rendered` rendererは`sandbox-pages` Issue #13 / PR #57でmainへ反映済みです。現在の作業記録は安全のため`publish: false`のままなので、公開要求workflowの通常経路は意図的に停止します。実データの公開はIssue #9で承認済みの1件を対象に確認します。
+受入側の`a_rendered` rendererは`sandbox-pages` Issue #13 / PR #57でmainへ反映済みです。Issue #9の手動E2Eでは、承認済みの対象1件だけを`publish: true`にし、固定commitを指定して公開要求を実行します。E2E完了後の恒久的な`enabled`・`publish`運用切替はIssue #10で判断します。
 
 ## できること
 

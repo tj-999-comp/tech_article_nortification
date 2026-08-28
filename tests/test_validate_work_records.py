@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 import tempfile
 import unittest
 from pathlib import Path
@@ -10,11 +11,37 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class WorkRecordValidatorTests(unittest.TestCase):
-    def test_current_records_match_and_are_not_publishable(self):
-        names = validate_work_records(ROOT, require_publish_false=True)
+    @contextmanager
+    def _fixture_root(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            md_dir = root / "work-records" / "md"
+            metadata_dir = root / "work-records" / "metadata"
+            md_dir.mkdir(parents=True)
+            metadata_dir.mkdir()
+            (md_dir / "work_record_001.md").write_text(
+                "# 作業記録 001: テスト\n\n検証用の作業記録です。\n",
+                encoding="utf-8",
+            )
+            (metadata_dir / "work_record_001.yml").write_text(
+                "schema_version: 1\n"
+                "title: テスト\n"
+                "date: \"2026-08-27\"\n"
+                "project_id: tech_article_nortification\n"
+                "tags:\n  - test\n"
+                "publish: false\n",
+                encoding="utf-8",
+            )
+            yield root
+
+    def test_current_records_include_one_explicit_e2e_candidate(self):
+        names = validate_work_records(ROOT)
         self.assertEqual(names[0], "work_record_001")
-        self.assertEqual(names[-1], "work_record_013")
-        self.assertEqual(len(names), 13)
+        self.assertEqual(names[-1], "work_record_014")
+        self.assertEqual(len(names), 14)
+
+        with self.assertRaisesRegex(ValidationError, "publish must remain false"):
+            validate_work_records(ROOT, require_publish_false=True)
 
     def test_rejects_mismatched_metadata_basename(self):
         with tempfile.TemporaryDirectory() as tmpdir:
