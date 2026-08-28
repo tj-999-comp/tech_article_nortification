@@ -42,9 +42,17 @@ python3 scripts/validate_work_records.py --require-publish-false
 
 `.github/workflows/validate-work-records.yml`は、mainへのpush、Pull Request、手動起動でこの検証だけを実行します。公開リポジトリへのworkflow dispatch、Secret登録、外部通知は行いません。既存の日次通知workflowは`daily-qiita-notify.yml.disabled`で無効化されているため、この検証workflowとは競合しません。
 
-### 公開要求workflowの設計
+### 公開要求workflow
 
-公開要求を実装・実行する前に、sandbox-pages側でこのprojectのsource registry、`a_rendered` renderer、受入workflow名、手動E2Eを確定させます。要求時に渡す値は、固定値`project_id`、検証済みcommitの`source_commit_sha`、対象basename`target_basename`の3つだけとし、公開先パスやファイル名をmetadata・ユーザー入力から組み立てません。生成元からsandbox-pagesをcheckout・編集・pushせず、Contents write権限も渡しません。
+[publish-work-record.yml](.github/workflows/publish-work-record.yml)は、次の3入力だけを受け取る手動起動workflowです。
+
+- `project_id`: `tech_article_nortification`との完全一致
+- `source_commit_sha`: 40桁の固定commit SHA
+- `target_basename`: `work_record_###`形式の単一basename
+
+workflowは指定SHAをcheckoutし、対象recordのMarkdown・metadataと`publish: true`を検証します。検証に失敗した場合はsandbox-pagesへdispatchせず、成功時だけ`accept-source.yml`へ3入力を渡します。cross-repository dispatch用の`SANDBOX_PAGES_DISPATCH_TOKEN`は、sandbox-pagesのActions実行だけを許可し、Contents writeを付与しないSecretとして登録してください。token、記事本文、Secret値はログへ出力しません。
+
+受入側の`a_rendered` rendererは`sandbox-pages` Issue #13 / PR #57でmainへ反映済みです。現在の作業記録は安全のため`publish: false`のままなので、公開要求workflowの通常経路は意図的に停止します。実データの公開はIssue #9で承認済みの1件を対象に確認します。
 
 ## できること
 
