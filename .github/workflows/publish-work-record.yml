@@ -1,0 +1,119 @@
+name: Publish work record request
+
+on:
+  workflow_dispatch:
+    inputs:
+      project_id:
+        description: "Fixed source project identifier"
+        required: true
+        type: string
+      source_commit_sha:
+        description: "Exact 40-character source commit SHA"
+        required: true
+        type: string
+      target_basename:
+        description: "One work-record basename, for example work_record_014"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  EXPECTED_PROJECT_ID: tech_article_nortification
+  TARGET_REPOSITORY: tj-999-comp/sandbox-pages
+  TARGET_WORKFLOW: accept-source.yml
+  TARGET_REF: main
+
+jobs:
+  validate-and-dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate request shape
+        shell: bash
+        env:
+          REQUEST_PROJECT_ID: ${{ inputs.project_id }}
+          REQUEST_SOURCE_COMMIT_SHA: ${{ inputs.source_commit_sha }}
+          REQUEST_TARGET_BASENAME: ${{ inputs.target_basename }}
+        run: |
+          set -euo pipefail
+          if [[ "$REQUEST_PROJECT_ID" != "$EXPECTED_PROJECT_ID" ]]; then
+            echo "project_id does not match the fixed source project" >&2
+            exit 1
+          fi
+          if [[ ! "$REQUEST_SOURCE_COMMIT_SHA" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            echo "source_commit_sha must be a 40-character commit SHA" >&2
+            exit 1
+          fi
+          if [[ ! "$REQUEST_TARGET_BASENAME" =~ ^work_record_[0-9]{3}$ ]]; then
+            echo "target_basename must be one work_record_### basename" >&2
+            exit 1
+          fi
+
+      - name: Checkout requested source commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_commit_sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Validate requested source commit and record
+        shell: bash
+        env:
+          REQUEST_PROJECT_ID: ${{ inputs.project_id }}
+          REQUEST_SOURCE_COMMIT_SHA: ${{ inputs.source_commit_sha }}
+          REQUEST_TARGET_BASENAME: ${{ inputs.target_basename }}
+        run: |
+          set -euo pipefail
+          checked_out_sha="$(git rev-parse HEAD | tr '[:upper:]' '[:lower:]')"
+          requested_sha="$(printf '%s' "$REQUEST_SOURCE_COMMIT_SHA" | tr '[:upper:]' '[:lower:]')"
+          if [[ "$checked_out_sha" != "$requested_sha" ]]; then
+            echo "checkout did not resolve to the requested commit" >&2
+            exit 1
+          fi
+          python3 scripts/validate_publish_request.py \
+            --project-id "$REQUEST_PROJECT_ID" \
+            --source-commit-sha "$REQUEST_SOURCE_COMMIT_SHA" \
+            --target-basename "$REQUEST_TARGET_BASENAME"
+
+      - name: Dispatch sandbox-pages acceptance workflow
+        shell: bash
+        env:
+          DISPATCH_TOKEN: ${{ secrets.SANDBOX_PAGES_DISPATCH_TOKEN }}
+          REQUEST_PROJECT_ID: ${{ inputs.project_id }}
+          REQUEST_SOURCE_COMMIT_SHA: ${{ inputs.source_commit_sha }}
+          REQUEST_TARGET_BASENAME: ${{ inputs.target_basename }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$DISPATCH_TOKEN" ]]; then
+            echo "SANDBOX_PAGES_DISPATCH_TOKEN is not configured" >&2
+            exit 1
+          fi
+
+          payload_file="$(mktemp)"
+          response_file="$(mktemp)"
+          trap 'rm -f "$payload_file" "$response_file"' EXIT
+          jq -n \
+            --arg ref "$TARGET_REF" \
+            --arg project_id "$REQUEST_PROJECT_ID" \
+            --arg source_commit_sha "$REQUEST_SOURCE_COMMIT_SHA" \
+            --arg target_basename "$REQUEST_TARGET_BASENAME" \
+            '{ref: $ref, inputs: {project_id: $project_id, source_commit_sha: $source_commit_sha, target_basename: $target_basename}}' \
+            > "$payload_file"
+
+          http_status="$(curl --silent --show-error \
+            --output "$response_file" \
+            --write-out '%{http_code}' \
+            --request POST \
+            --url "https://api.github.com/repos/$TARGET_REPOSITORY/actions/workflows/$TARGET_WORKFLOW/dispatches" \
+            --header "Accept: application/vnd.github+json" \
+            --header "Authorization: Bearer $DISPATCH_TOKEN" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            --header "Content-Type: application/json" \
+            --data-binary "@$payload_file")"
+
+          if [[ "$http_status" != "204" ]]; then
+            echo "sandbox-pages dispatch failed with HTTP $http_status" >&2
+            exit 1
+          fi
+          echo "sandbox-pages acceptance workflow dispatched"

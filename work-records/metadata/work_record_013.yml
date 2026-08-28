@@ -1,0 +1,10 @@
+schema_version: 1
+title: Issue #5の公開受入契約とsource-side検証
+date: "2026-08-28"
+project_id: tech_article_nortification
+tags:
+  - portfolio
+  - source-validation
+  - github-actions
+  - contract
+publish: false
