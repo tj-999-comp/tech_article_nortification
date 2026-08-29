@@ -1,0 +1,36 @@
+name: Daily Qiita Notification
+
+on:
+  # The schedule is owned by Google Apps Script. Keeping this workflow
+  # dispatch-only prevents duplicate notifications.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run pipeline
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_CHANNEL: ${{ vars.SLACK_CHANNEL }}
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          NOTION_DATABASE_ID: ${{ vars.NOTION_DATABASE_ID }}
+          QIITA_API_TOKEN: ${{ secrets.QIITA_API_TOKEN }}
+          GHUB_MODELS_API_KEY: ${{ secrets.GHUB_MODELS_API_KEY }}
+          QIITA_LOOKBACK_DAYS: ${{ vars.QIITA_LOOKBACK_DAYS || '7' }}
+          PIPELINE_UNTIL_STEP: "4"
+          REQUIRE_LLM_SUCCESS: "true"
+          GITHUB_MODELS_MODEL: "gpt-4o-mini"
+          DRY_RUN: "false"
+        run: python run_pipeline.py
