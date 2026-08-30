@@ -1,0 +1,11 @@
+schema_version: 1
+title: "GASのGitHub認証復旧"
+date: "2026-08-30"
+project_id: tech_article_nortification
+tags:
+  - gas
+  - github-actions
+  - authentication
+  - operations
+  - handoff
+publish: false
