@@ -52,7 +52,9 @@ python3 scripts/validate_work_records.py --require-publish-false
 
 workflowは指定SHAをcheckoutし、対象recordのMarkdown・metadataと`publish: true`を検証します。検証に失敗した場合はsandbox-pagesへdispatchせず、成功時だけ`accept-source.yml`へ3入力を渡します。cross-repository dispatch用の`SANDBOX_PAGES_DISPATCH_TOKEN`は、sandbox-pagesのActions実行だけを許可し、Contents writeを付与しないSecretとして登録してください。token、記事本文、Secret値はログへ出力しません。
 
-受入側の`a_rendered` rendererは`sandbox-pages` Issue #13 / PR #57でmainへ反映済みです。Issue #9の手動E2Eでは、承認済みの対象1件だけを`publish: true`にし、固定commitを指定して公開要求を実行します。E2E完了後の恒久的な`enabled`・`publish`運用切替はIssue #10で判断します。
+受入側の`a_rendered` rendererは`sandbox-pages` Issue #13 / PR #57でmainへ反映済みです。Issue #9の手動E2Eでは、承認済みの対象1件だけを`publish: true`にし、固定commitを指定して公開要求を実行しました。E2E後の恒久的な`enabled`・`publish`運用切替は、明示的な人間承認がある場合だけ実施します。
+
+運用切替、公開承認、緊急停止、rollback、通知再送、digest drift時の対応手順は[Portfolio公開運用手順](docs/PORTFOLIO_OPERATIONS.md)にまとめています。自動workflowが`enabled`や`publish`を変更することはありません。
 
 ## できること
 
