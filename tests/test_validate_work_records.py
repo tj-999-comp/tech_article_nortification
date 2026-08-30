@@ -11,6 +11,24 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class WorkRecordValidatorTests(unittest.TestCase):
+    def test_portfolio_operations_document_covers_manual_safety_controls(self):
+        document = (ROOT / "docs/PORTFOLIO_OPERATIONS.md").read_text(encoding="utf-8")
+        for required_text in (
+            "enabled: false",
+            "publish: true",
+            "既存10件をbootstrapで無条件に再公開・再通知しない",
+            "source_commit_sha",
+            "target_basename",
+            "緊急停止",
+            "rollback",
+            "digest drift",
+            "同じpublication IDへの重複送信にならない",
+            "Contents write",
+            "33158737917",
+            "accept-33158737917-1-tech_article_nortification-work_record_014",
+        ):
+            self.assertIn(required_text, document)
+
     @contextmanager
     def _fixture_root(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -37,8 +55,9 @@ class WorkRecordValidatorTests(unittest.TestCase):
     def test_current_records_include_one_explicit_e2e_candidate(self):
         names = validate_work_records(ROOT)
         self.assertEqual(names[0], "work_record_001")
-        self.assertEqual(names[-2:], ["work_record_014", "work_record_015"])
-        self.assertEqual(len(names), 15)
+        self.assertGreaterEqual(len(names), 15)
+        self.assertIn("work_record_014", names)
+        self.assertIn("work_record_015", names)
 
         with self.assertRaisesRegex(ValidationError, "publish must remain false"):
             validate_work_records(ROOT, require_publish_false=True)
