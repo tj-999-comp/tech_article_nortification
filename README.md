@@ -1,6 +1,6 @@
 # tech_article_nortification
 
-Qiita の人気記事 20 件を毎日 Slack に通知し、同じ記事リンクを Notion DB に蓄積するアプリケーションです。
+Qiita APIから過去7日間に公開された記事を人気順で最大20件取得し、そのうち最大10件を要約してSlackへ通知し、同じ記事リンクをNotion DBへ重複なく蓄積するアプリケーションです。定期実行はGoogle Apps Script（GAS）が担当します。
 
 ## Portfolio公開連携
 
@@ -40,7 +40,7 @@ work-records/
 python3 scripts/validate_work_records.py --require-publish-false
 ```
 
-`.github/workflows/validate-work-records.yml`は、mainへのpush、Pull Request、手動起動でこの構造検証だけを実行します。`publish: true`は公開要求の候補を示すだけで、公開リポジトリへのworkflow dispatch、Secret登録、外部通知は行いません。公開前に全件を無効状態で確認したい場合は、上記コマンドの`--require-publish-false`を使います。既存の日次通知workflowは`daily-qiita-notify.yml.disabled`で無効化されているため、この検証workflowとは競合しません。
+`.github/workflows/validate-work-records.yml`は、mainへのpush、Pull Request、手動起動でこの構造検証だけを実行します。`publish: true`は公開要求の候補を示すだけで、公開リポジトリへのworkflow dispatch、Secret登録、外部通知は行いません。公開前に全件を無効状態で確認したい場合は、上記コマンドの`--require-publish-false`を使います。通知workflowは`.github/workflows/daily-qiita-notify.yml`にありますが、GASとの二重起動を避けるため`workflow_dispatch`専用です。
 
 ### 公開要求workflow
 
@@ -56,14 +56,14 @@ workflowは指定SHAをcheckoutし、対象recordのMarkdown・metadataと`publi
 
 ## できること
 
-- Qiita API から直近の人気記事を 20 件取得
+- Qiita API から過去7日間の記事を人気順で最大20件取得
+- 取得20件のうち、既定で最大10件をSlack通知・Notion同期
 - 取得した記事情報を `articles/YYYYMMDD.json` に保存
 - 記事タイトルと本文から 120〜180 文字程度の紹介文を自動生成
-- Slack へ通知（Webhook一括投稿 / スレッド投稿）
+- Slack へ親投稿1件とスレッド返信1件で通知
 - Notion Database に記事を重複登録せず保存
 - Notion 上で以下の状態を管理
   - Read
-  - Read Date
   - Helpful
   - ReadAgain
 
@@ -76,8 +76,30 @@ workflowは指定SHAをcheckoutし、対象recordのMarkdown・metadataと`publi
   - [step3_notify_slack.py](step3_notify_slack.py)
   - [step4_sync_notion.py](step4_sync_notion.py)
 - 一括実行は [run_pipeline.py](run_pipeline.py) を利用します。
-- 日次実行は [daily-qiita-notify.yml](.github/workflows/daily-qiita-notify.yml) で実行します。
+- GitHub Actions の [daily-qiita-notify.yml](.github/workflows/daily-qiita-notify.yml) は `workflow_dispatch` 専用で、実処理は `run_pipeline.py` を実行します。
+- 定期起動は [GASのトリガースクリプト](gas/trigger_github_workflow.gs) が担当します。
 - Agent 分割の設計メモは [AGENTS.md](AGENTS.md) に記載しています。
+
+### 定期実行と起動経路
+
+```text
+GAS時間主導トリガー（水曜・土曜 08:00 JST）
+    ↓ workflow_dispatch（GitHub API）
+GitHub Actions: daily-qiita-notify.yml
+    ↓
+run_pipeline.py（Step1 → Step2 → Step3 Slack → Step4 Notion）
+```
+
+- GASの `installTimeTriggers` は、`runScheduledWorkflow` の既存トリガーを削除してから、水曜・土曜の08:00（`Asia/Tokyo`）を再登録します。
+- GASのGitHubトークンはScript Propertiesの `GITHUB_TOKEN` に保存します。ソースコードへトークンを書きません。
+- GitHub Actions側には `schedule` を設定していません。定期実行を再開する場合は、まずGASトリガーの状態を確認します。
+- Actionsのworkflowを手動起動すると、Qiita取得・要約・Slack通知・Notion同期まで実行されるため、実データでの確認時は重複投稿に注意してください。
+
+### Slack通知が届かない場合
+
+確認する順序は、(1) GASの時間主導トリガーが存在し、実行履歴で成功しているか、(2) GitHub Actionsの `Daily Qiita Notification` に `workflow_dispatch` の実行が作られているか、(3) workflowの `SLACK_BOT_TOKEN` Secretと `SLACK_CHANNEL` Variableが設定されているか、(4) `Run pipeline` の失敗箇所がQiita・GitHub Models・Slack・Notionのどこか、です。
+
+2026-08-29時点の確認では、通知workflowの最後の実行は2026-05-29の成功した `schedule` 実行でした。現在のworkflowはGAS起動の `workflow_dispatch` 専用なので、5月29日以降にActions実行がないことから、まずGASトリガー未実行またはGASからのdispatch失敗を疑います。GASの実行履歴とScript Propertiesは、このリポジトリからは確認できません。
 
 ## 実行ファイルの役割整理（2026-05-18時点）
 
@@ -226,8 +248,8 @@ GitHub Models API を呼び出し、タイトル・本文・ルール要約を�
 4. 正規化後 160 字前後に文単位で調整
 
 **失敗時の動作:**
-- ネットワークエラー、タイムアウト、レスポンス不正 → ルール要約へ自動フォールバック
-- 処理は常に続行（通知を止めない）
+- `REQUIRE_LLM_SUCCESS=false` の場合、ネットワークエラー、タイムアウト、レスポンス不正はルール要約へフォールバック
+- GitHub Actionsは `REQUIRE_LLM_SUCCESS=true` のため、LLM要約に失敗するとStep2で停止し、Slack通知とNotion同期は実行しない
 
 **特徴:**
 - 複雑な記事でも要点を捉えやすい
@@ -243,6 +265,8 @@ GitHub Models API を呼び出し、タイトル・本文・ルール要約を�
 - `NOTION_TOKEN`: Notion Integration Token
 - `NOTION_DATABASE_ID`: 保存先 Database ID
 - `QIITA_LOOKBACK_DAYS`: 取得対象期間（日数、任意。既定値は `7`）
+- `QIITA_FETCH_LIMIT`: Qiitaから取得する最大件数（任意。既定値は `20`）
+- `QIITA_NOTIFY_LIMIT`: Slack通知・Notion同期する最大件数（任意。既定値は `10`）
 - `DRY_RUN`: `true` を指定すると外部通知せず payload を標準出力に表示
 
 ### 取得ロジック（任意）
@@ -276,10 +300,11 @@ GitHub Models API を呼び出し、タイトル・本文・ルール要約を�
 | PublishedAt | Date |
 | NotifiedAt | Date |
 | Read | Checkbox |
-| Read Date | Date |
 | Helpful | Checkbox |
 | ReadAgain | Checkbox |
 | Tags | Multi-select |
+
+`Read Date` はDBに追加しても構いませんが、現在の実装では読み書きしません。
 
 ## ローカル実行
 
@@ -311,7 +336,7 @@ PIPELINE_STEPS=1,2,4 REQUIRE_LLM_SUCCESS=true GITHUB_MODELS_MODEL=gpt-4o-mini py
 - `PIPELINE_UNTIL_STEP=3`: 1〜3のみ実行
 - `PIPELINE_STEPS=1,2,4`: 指定したステップだけ実行（`PIPELINE_UNTIL_STEP`より優先）
 - `DRY_RUN=false`: Slackへ実投稿
-- `REQUIRE_LLM_SUCCESS=true`: LLM要約失敗時は停止（フォールバックしない）
+- `REQUIRE_LLM_SUCCESS=true`: Step2でLLM要約に失敗した場合は停止（workflowの設定値）。`false` にするとルールベース要約へフォールバックします。
 
 補足:
 - `step1_fetch_articles.py` 実行時に、`articles/` 配下の30日超過した `.json` を自動削除します。
@@ -334,7 +359,7 @@ README冒頭の「要約ロジックのフロー図」は、記事1件に対す�
 ## テスト
 
 ```bash
-python -m unittest discover -s tests -v
+PYTHONPATH=. python3 -m unittest discover -s tests -p 'test_*.py' -v
 ```
 
 ## 補足ドキュメント

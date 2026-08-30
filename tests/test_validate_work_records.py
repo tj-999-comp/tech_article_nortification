@@ -37,8 +37,8 @@ class WorkRecordValidatorTests(unittest.TestCase):
     def test_current_records_include_one_explicit_e2e_candidate(self):
         names = validate_work_records(ROOT)
         self.assertEqual(names[0], "work_record_001")
-        self.assertEqual(names[-1], "work_record_014")
-        self.assertEqual(len(names), 14)
+        self.assertEqual(names[-2:], ["work_record_014", "work_record_015"])
+        self.assertEqual(len(names), 15)
 
         with self.assertRaisesRegex(ValidationError, "publish must remain false"):
             validate_work_records(ROOT, require_publish_false=True)

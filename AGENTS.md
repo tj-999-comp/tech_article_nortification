@@ -16,14 +16,14 @@
 
 ## 1. qiita-fetcher
 
-**目的**: Qiitaのトレンド人気記事を取得
+**目的**: Qiitaの直近記事を人気順で取得
 
 **責務**:
-- Qiita API または Web スクレイピングでトレンド記事を取得
-- 本日のトレンド上位5つの記事情報を抽出
+- Qiita APIから過去7日間に公開された記事を取得
+- 人気順に並べ、最大20件の候補を抽出する
 - 記事URL、タイトル、著者、いいね数などを抽出
 
-**入力**: なし（毎日実行）
+**入力**: なし（GASの定期トリガーから起動）
 
 **出力**: 
 ```json
@@ -42,11 +42,11 @@
 
 ## 2. summarizer
 
-**目的**: 記事から100字程度の紹介文を生成
+**目的**: 記事から120〜180字程度の紹介文を生成
 
 **責務**:
 - 記事のURLにアクセスして内容を取得
-- タイトルと内容から要約を生成（約100字）
+- タイトルと内容から要約を生成（120〜180字程度）
 - 記事の要点を簡潔に表現
 - 読みやすいテキストに加工
 
@@ -63,7 +63,7 @@
 {
   "url": "https://qiita.com/...",
   "title": "記事タイトル",
-  "summary": "100字程度の要約テキスト..."
+  "summary": "120〜180字程度の要約テキスト..."
 }
 ```
 
@@ -84,7 +84,7 @@
 {
   "url": "https://qiita.com/...",
   "title": "記事タイトル",
-  "summary": "100字程度の要約テキスト...",
+  "summary": "120〜180字程度の要約テキスト...",
   "author": "著者名",
   "fetched_date": "2026-05-16"
 }
@@ -117,7 +117,7 @@
   "articles": [
     {
       "title": "記事タイトル",
-      "summary": "100字程度の要約",
+      "summary": "120〜180字程度の要約",
       "url": "https://qiita.com/...",
       "author": "著者名"
     }
@@ -141,9 +141,9 @@
 **目的**: 全体フローを調整・管理
 
 **責務**:
-- 毎日の定時実行スケジュール管理（例: 朝9時）
+- GASの時間主導トリガーによる定期実行（毎週水曜・土曜の08:00 JST）
 - 各エージェントの実行順序を制御
-- qiita-fetcher → summarizer → notion-writer → slack-notifier の順序で実行
+- qiita-fetcher → summarizer → slack-notifier → notion-writer の順序で実行
 - エラーハンドリング（失敗時のリトライ、ログ記録）
 - 実行結果の集約とレポート
 
@@ -156,21 +156,17 @@
 ## 実行フロー
 
 ```
-毎日 9:00 (定時)
+水曜・土曜 8:00 JST (GAS時間主導トリガー)
     ↓
 [orchestrator] フロー開始
     ↓
-[qiita-fetcher] トレンド5記事を取得
+[qiita-fetcher] 過去7日間の人気記事を最大20件取得
     ↓
-    ├→ [summarizer] 記事1の要約生成
-    ├→ [summarizer] 記事2の要約生成
-    ├→ [summarizer] 記事3の要約生成
-    ├→ [summarizer] 記事4の要約生成
-    ├→ [summarizer] 記事5の要約生成
-    ↓
-[notion-writer] 全記事をNotionに追加
+    ├→ [summarizer] 通知対象最大10記事の要約生成
     ↓
 [slack-notifier] Slackで通知
+    ↓
+[notion-writer] 通知対象記事をNotionに追加
     ↓
 [orchestrator] 完了ログ記録
 ```
@@ -191,7 +187,11 @@
 
 各Agentで必要な環境変数:
 - `QIITA_API_TOKEN`: Qiita API アクセストークン
-- `NOTION_API_KEY`: Notion API キー
+- `NOTION_TOKEN`: Notion API キー
 - `NOTION_DATABASE_ID`: Notionデータベース ID
 - `SLACK_BOT_TOKEN`: Slack Bot Token
 - `SLACK_CHANNEL`: 通知先チャネルID
+- `GHUB_MODELS_API_KEY`: GitHub Models API キー（LLM要約時）
+- `QIITA_LOOKBACK_DAYS`: 取得対象期間（日数、既定値7）
+- `QIITA_FETCH_LIMIT`: 取得候補数（既定値20）
+- `QIITA_NOTIFY_LIMIT`: Slack通知・Notion同期数（既定値10）
