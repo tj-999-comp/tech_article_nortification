@@ -191,7 +191,7 @@
 - `NOTION_DATABASE_ID`: Notionデータベース ID
 - `SLACK_BOT_TOKEN`: Slack Bot Token
 - `SLACK_CHANNEL`: 通知先チャネルID
-- `GHUB_MODELS_API_KEY`: GitHub Models API キー（LLM要約時）
+- `GHUB_MODELS_API_KEY`: 旧GitHub Models API キー（現在の定期workflowでは未使用）
 - `QIITA_LOOKBACK_DAYS`: 取得対象期間（日数、既定値7）
 - `QIITA_FETCH_LIMIT`: 取得候補数（既定値20）
 - `QIITA_NOTIFY_LIMIT`: Slack通知・Notion同期数（既定値10）

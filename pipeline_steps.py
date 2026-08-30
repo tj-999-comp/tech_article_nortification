@@ -14,7 +14,9 @@ QIITA_API_URL = "https://qiita.com/api/v2/items"
 NOTION_QUERY_URL = "https://api.notion.com/v1/databases/{database_id}/query"
 NOTION_PAGE_URL = "https://api.notion.com/v1/pages"
 NOTION_VERSION = "2022-06-28"
-GITHUB_MODELS_URL = "https://models.inference.ai.azure.com/chat/completions"
+# GitHub Models was retired on 2026-07-30. Keep the legacy integration
+# callable only when an explicit endpoint is supplied for compatibility.
+GITHUB_MODELS_URL = ""
 SLACK_CHAT_POST_MESSAGE_URL = "https://slack.com/api/chat.postMessage"
 
 
@@ -224,7 +226,11 @@ def summarize_article_with_github_models(
         return truncate_summary(title, max_length)
 
     model = os.getenv("GITHUB_MODELS_MODEL", "openai/gpt-4.1-mini")
-    endpoint = os.getenv("GITHUB_MODELS_URL", GITHUB_MODELS_URL)
+    endpoint = os.getenv("GITHUB_MODELS_URL", GITHUB_MODELS_URL).strip()
+    if not endpoint:
+        raise RuntimeError(
+            "GitHub Models API is retired; use SUMMARIZER_MODE=rule instead"
+        )
     hint = summarize_article_rule_based(title, body, max_length=180)
 
     response = fetcher(
@@ -290,7 +296,7 @@ def summarize_article(
     mode: str | None = None,
     llm_fetcher: Callable[..., dict | list] = http_json,
 ) -> str:
-    active_mode = (mode or os.getenv("SUMMARIZER_MODE", "llm")).lower()
+    active_mode = (mode or os.getenv("SUMMARIZER_MODE", "rule")).lower()
     if active_mode in {"llm", "github", "github_models"}:
         try:
             return summarize_article_with_github_models(
@@ -560,7 +566,7 @@ def summarize_and_format(
     require_llm_success: bool = True,
 ) -> list[Article]:
     articles: list[Article] = []
-    mode = (summarizer_mode or os.getenv("SUMMARIZER_MODE", "llm")).lower()
+    mode = (summarizer_mode or os.getenv("SUMMARIZER_MODE", "rule")).lower()
     for item in raw_articles:
         title = (item.get("title") or "").strip()
         body = item.get("body") or ""

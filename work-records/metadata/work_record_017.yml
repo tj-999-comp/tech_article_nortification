@@ -1,0 +1,11 @@
+schema_version: 1
+title: "GitHub Models終了に伴う通知workflow復旧"
+date: "2026-08-30"
+project_id: tech_article_nortification
+tags:
+  - github-actions
+  - summarizer
+  - operations
+  - incident
+  - handoff
+publish: false

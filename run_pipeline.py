@@ -42,7 +42,7 @@ def main() -> int:
     limit = int(os.getenv("QIITA_FETCH_LIMIT", "20"))
     notify_limit = int(os.getenv("QIITA_NOTIFY_LIMIT", "10"))
     summarizer_mode = os.getenv("SUMMARIZER_MODE")
-    require_llm_success = _is_true(os.getenv("REQUIRE_LLM_SUCCESS", "true"))
+    require_llm_success = _is_true(os.getenv("REQUIRE_LLM_SUCCESS", "false"))
 
     if until_step < 1 or until_step > 4:
         raise RuntimeError("PIPELINE_UNTIL_STEP must be 1..4")
