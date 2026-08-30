@@ -50,7 +50,7 @@ python3 scripts/validate_work_records.py --require-publish-false
 - `source_commit_sha`: 40桁の固定commit SHA
 - `target_basename`: `work_record_###`形式の単一basename
 
-workflowは指定SHAをcheckoutし、対象recordのMarkdown・metadataと`publish: true`を検証します。検証に失敗した場合はsandbox-pagesへdispatchせず、成功時だけ`accept-source.yml`へ3入力を渡します。cross-repository dispatch用の`SANDBOX_PAGES_DISPATCH_TOKEN`は、sandbox-pagesのActions実行だけを許可し、Contents writeを付与しないSecretとして登録してください。token、記事本文、Secret値はログへ出力しません。
+workflowは指定SHAをcheckoutし、対象recordのMarkdown・metadataと`publish: true`を検証します。検証に失敗した場合はsandbox-pagesへdispatchせず、成功時だけ`accept-source.yml`へ3入力を渡します。cross-repository dispatchは、`PUBLISH_APP_ID`と`PUBLISH_APP_PRIVATE_KEY`が登録されている場合、sandbox-pagesだけを対象にした短期GitHub App installation token（`Actions: write`のみ）をworkflow内で発行して行います。App設定が未登録の場合だけ、移行用の`SANDBOX_PAGES_DISPATCH_TOKEN`へfallbackします。いずれもContents writeは付与せず、token、記事本文、Secret値はログへ出力しません。
 
 受入側の`a_rendered` rendererは`sandbox-pages` Issue #13 / PR #57でmainへ反映済みです。Issue #9の手動E2Eでは、承認済みの対象1件だけを`publish: true`にし、固定commitを指定して公開要求を実行しました。E2E後の恒久的な`enabled`・`publish`運用切替は、明示的な人間承認がある場合だけ実施します。
 
