@@ -22,6 +22,14 @@ GAS の時間主導トリガーと GitHub Actions の定期実行が重なり、
 - 必要であれば、GAS 側にも重複防止のガードを追加する。
 - 将来的に GitHub Actions を再開する場合は、GAS トリガーとの役割分担を再整理する。
 
+## 現行構成（2026-08-29更新）
+
+- `.github/workflows/daily-qiita-notify.yml` は削除せず、`workflow_dispatch` 専用として維持する。
+- 定期起動は `gas/trigger_github_workflow.gs` の `runScheduledWorkflow` が担当し、水曜・土曜の08:00（`Asia/Tokyo`）にGitHub Actionsをdispatchする。
+- GitHub Actions側に `schedule` は設定しない。これにより、GASとActionsの二重起動を防ぐ。
+- 2026-08-29の確認時点で、通知workflowの最後の実行は2026-05-29だった。以降のSlack未更新は、GASトリガー未実行またはGASからのdispatch失敗が第一候補である。
+- GASの実行履歴、時間主導トリガー、Script Properties（`GITHUB_TOKEN`）は、Apps Script側で確認する必要がある。
+
 ## 追記: GitHub Issue #9 手動公開E2E
 
 2026-08-28 に、Sandbox Pages への新規作業記録公開E2Eを実施した。
