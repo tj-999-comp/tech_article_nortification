@@ -67,7 +67,16 @@ source_commit_sha: <対象commitの40文字SHA>
 target_basename:   work_record_###
 ```
 
-Actionsが指定SHAをcheckoutしてrecordを再検証し、成功した場合だけsandbox-pagesの受入workflowへdispatchする。source側でsandbox-pagesをcheckout・編集・commit・pushしたり、Contents write tokenを使ったりしない。
+Actionsが指定SHAをcheckoutしてrecordを再検証し、成功した場合だけsandbox-pagesの受入workflowへdispatchする。dispatch認証は、`PUBLISH_APP_ID`と`PUBLISH_APP_PRIVATE_KEY`が両方設定されている場合に、`actions/create-github-app-token@v3`で`sandbox-pages`だけを対象とする短期tokenを発行する。App設定が未登録の場合だけ移行用の`SANDBOX_PAGES_DISPATCH_TOKEN`へfallbackする。source側でsandbox-pagesをcheckout・編集・commit・pushしたり、Contents write tokenを使ったりしない。
+
+source repositoryのActions Secretは次の名前を使う。
+
+```text
+PUBLISH_APP_ID
+PUBLISH_APP_PRIVATE_KEY
+```
+
+App tokenはworkflow実行時に発行され、保存・ログ出力しない。Appが未設定の移行期間だけ、旧 `SANDBOX_PAGES_DISPATCH_TOKEN` を使用する。
 
 ## 緊急停止
 

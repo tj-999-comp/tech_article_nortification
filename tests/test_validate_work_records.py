@@ -174,6 +174,13 @@ class WorkRecordValidatorTests(unittest.TestCase):
         self.assertNotIn("repository_dispatch", workflow)
         self.assertIn("accept-source.yml", workflow)
         self.assertIn("persist-credentials: false", workflow)
+        self.assertIn("PUBLISH_APP_ID", workflow)
+        self.assertIn("PUBLISH_APP_PRIVATE_KEY", workflow)
+        self.assertIn("actions/create-github-app-token@v3", workflow)
+        self.assertIn("owner: tj-999-comp", workflow)
+        self.assertIn("repositories: sandbox-pages", workflow)
+        self.assertIn("permission-actions: write", workflow)
+        self.assertIn("Dispatch authentication", workflow)
         self.assertIn("SANDBOX_PAGES_DISPATCH_TOKEN", workflow)
 
 
