@@ -60,6 +60,7 @@ class SummarizeArticleTests(unittest.TestCase):
             "os.environ",
             {
                 "GHUB_MODELS_API_KEY": "dummy-token",
+                "GITHUB_MODELS_URL": "https://example.test/inference/chat/completions",
                 "SUMMARIZER_MODE": "llm",
             },
             clear=False,
@@ -82,6 +83,7 @@ class SummarizeArticleTests(unittest.TestCase):
             "os.environ",
             {
                 "GHUB_MODELS_API_KEY": "dummy-token",
+                "GITHUB_MODELS_URL": "https://example.test/inference/chat/completions",
                 "SUMMARIZER_MODE": "llm",
             },
             clear=False,
@@ -104,6 +106,7 @@ class SummarizeArticleTests(unittest.TestCase):
             "os.environ",
             {
                 "GHUB_MODELS_API_KEY": "dummy-token",
+                "GITHUB_MODELS_URL": "https://example.test/inference/chat/completions",
                 "SUMMARIZER_MODE": "llm",
             },
             clear=False,

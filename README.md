@@ -182,9 +182,9 @@ run_pipeline.py（Step1 → Step2 → Step3 Slack → Step4 Notion）
 - ネットワーク障害の影響なし
 - 必ず要約を返す
 
-### LLM 要約（SUMMARIZER_MODE=llm）
+### LLM 要約（旧機能・現在は停止）
 
-GitHub Models API を呼び出し、タイトル・本文・ルール要約を参考に 120〜180 字程度の要約を生成します。
+以前はGitHub Models APIを呼び出し、タイトル・本文・ルール要約を参考に120〜180字程度の要約を生成していました。GitHub Modelsは2026-07-30に終了したため、現在の定期通知workflowでは使用せず、ルールベース要約を使用します。
 
 **入力データ:**
 - `title`: 記事タイトル（文字列）
@@ -197,7 +197,7 @@ GitHub Models API を呼び出し、タイトル・本文・ルール要約を�
 |---------|------|-------|-----|
 | `GHUB_MODELS_API_KEY` | HTTP リクエストの認証 | ✅ | `github_pat_xxxxx` |
 | `GITHUB_MODELS_MODEL` | 使用するモデル | ❌（既定値あり） | `openai/gpt-4.1-mini` |
-| `GITHUB_MODELS_URL` | API エンドポイント | ❌（既定値あり） | `https://models.inference.ai.azure.com/chat/completions` |
+| `GITHUB_MODELS_URL` | 旧APIエンドポイント | ❌ | 現在は使用しない |
 
 **API リクエストペイロード例:**
 
@@ -249,7 +249,7 @@ GitHub Models API を呼び出し、タイトル・本文・ルール要約を�
 
 **失敗時の動作:**
 - `REQUIRE_LLM_SUCCESS=false` の場合、ネットワークエラー、タイムアウト、レスポンス不正はルール要約へフォールバック
-- GitHub Actionsは `REQUIRE_LLM_SUCCESS=true` のため、LLM要約に失敗するとStep2で停止し、Slack通知とNotion同期は実行しない
+- 現在のGitHub Actionsは `SUMMARIZER_MODE=rule` と `REQUIRE_LLM_SUCCESS=false` のため、GitHub Modelsの停止に影響されずStep2以降を継続する
 
 **特徴:**
 - 複雑な記事でも要点を捉えやすい
@@ -279,13 +279,12 @@ GitHub Models API を呼び出し、タイトル・本文・ルール要約を�
 
 ### 要約ロジック（任意）
 
-- `SUMMARIZER_MODE`: `rule` または `llm`（既定値: `llm`）
+- `SUMMARIZER_MODE`: `rule` または `llm`（既定値: `rule`）
   - `rule`: ルールベース要約のみ（常に安定）
-  - `llm`: GitHub Models API を優先し、失敗時はルール要約へフォールバック
-- `GHUB_MODELS_API_KEY`: GitHub Models API アクセストークン
-  - `SUMMARIZER_MODE=llm` 時に必須
+  - `llm`: 旧GitHub Models APIを試行し、失敗時はルール要約へフォールバック（現在は非推奨）
+- `GHUB_MODELS_API_KEY`: 旧GitHub Models API用アクセストークン（現在のworkflowでは未使用）
+- `GITHUB_MODELS_URL`: 旧GitHub Models APIエンドポイント（GitHub Models終了後は使用しない）
 - `GITHUB_MODELS_MODEL`: 使用するモデル（既定値: `openai/gpt-4.1-mini`）
-- `GITHUB_MODELS_URL`: GitHub Models エンドポイント（既定値: `https://models.inference.ai.azure.com/chat/completions`）
 
 ## Notion DB の想定プロパティ
 
@@ -310,7 +309,7 @@ GitHub Models API を呼び出し、タイトル・本文・ルール要約を�
 
 ```bash
 python step1_fetch_articles.py
-REQUIRE_LLM_SUCCESS=true GITHUB_MODELS_MODEL=gpt-4o-mini python step2_summarize_format.py
+SUMMARIZER_MODE=rule python step2_summarize_format.py
 DRY_RUN=true python step3_notify_slack.py
 ```
 
@@ -327,16 +326,16 @@ DRY_RUN=true python step3_notify_slack.py
 
 ```bash
 # 今回の運用: Step3まで実行（Notion連携なし）
-PIPELINE_UNTIL_STEP=3 DRY_RUN=false REQUIRE_LLM_SUCCESS=true GITHUB_MODELS_MODEL=gpt-4o-mini python run_pipeline.py
+PIPELINE_UNTIL_STEP=3 DRY_RUN=false SUMMARIZER_MODE=rule REQUIRE_LLM_SUCCESS=false python run_pipeline.py
 
 # 任意ステップだけ実行（例: Step1, Step2, Step4）
-PIPELINE_STEPS=1,2,4 REQUIRE_LLM_SUCCESS=true GITHUB_MODELS_MODEL=gpt-4o-mini python run_pipeline.py
+PIPELINE_STEPS=1,2,4 REQUIRE_LLM_SUCCESS=false SUMMARIZER_MODE=rule python run_pipeline.py
 ```
 
 - `PIPELINE_UNTIL_STEP=3`: 1〜3のみ実行
 - `PIPELINE_STEPS=1,2,4`: 指定したステップだけ実行（`PIPELINE_UNTIL_STEP`より優先）
 - `DRY_RUN=false`: Slackへ実投稿
-- `REQUIRE_LLM_SUCCESS=true`: Step2でLLM要約に失敗した場合は停止（workflowの設定値）。`false` にするとルールベース要約へフォールバックします。
+- `REQUIRE_LLM_SUCCESS=false`: LLM要約が失敗してもルールベース要約へフォールバックし、後続の通知処理を継続します。
 
 補足:
 - `step1_fetch_articles.py` 実行時に、`articles/` 配下の30日超過した `.json` を自動削除します。

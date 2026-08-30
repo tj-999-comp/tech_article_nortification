@@ -31,6 +31,14 @@ class GasTriggerContractTests(unittest.TestCase):
         self.assertNotIn("contents: write", workflow)
         self.assertIn("run: python run_pipeline.py", workflow)
 
+    def test_notification_workflow_does_not_depend_on_retired_github_models(self):
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+
+        self.assertIn('SUMMARIZER_MODE: "rule"', workflow)
+        self.assertIn('REQUIRE_LLM_SUCCESS: "false"', workflow)
+        self.assertNotIn("GHUB_MODELS_API_KEY", workflow)
+        self.assertNotIn("models.inference.ai.azure.com", workflow)
+
 
 if __name__ == "__main__":
     unittest.main()
