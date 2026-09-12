@@ -4,15 +4,14 @@
 `tj-999-comp/sandbox-pages` へ公開するときの判断基準、実行手順、停止手順を定める。
 公開処理は生成元と公開先にまたがるため、片側の確認だけで運用状態を変更しない。
 
-## 現在の安全状態
+## 現在の運用状態
 
-- source registry の `tech_article_nortification` は `enabled: false` を初期状態とする。
-- GitHub Actions の `publish-work-record.yml` は手動起動だけで、source 側から自動公開しない。
+- source registry の `tech_article_nortification` は `enabled: true` である。
+- GitHub Actions の `publish-work-record.yml` はmainの `work-records/**` 更新を検出し、`publish: true` の変更対象を自動で受入要求する。
+- 手動起動では `source_commit_sha` と `target_basename` の2入力だけを使う。
 - 作業記録の通常追加では metadata の `publish: false` を使う。
-- `publish: true` は、承認済みの単一recordを明示的に公開する一時的な意思表示であり、全件公開のスイッチではない。
-- 既存10件をbootstrapで無条件に再公開・再通知しない。source registryを有効化するだけで既存recordが公開される運用にも変更しない。
-
-この状態から `enabled: true` または新しい `publish: true` を設定するには、以下の承認を人間が行う。自動workflow、validator、GASは承認を代行しない。
+- `publish: true` は、公開対象として受入要求へ含める明示的な意思表示であり、全件公開のスイッチではない。
+- 既存recordは、後から `publish: true` に変更されない限り、main更新によって再公開しない。
 
 ## E2E・受入の確認状況
 
@@ -21,22 +20,22 @@ Issue 009に記録された2026-08-28の手動E2Eでは、受入、apply、Pages
 - sandbox-pages受入workflow run: `33158737917`
 - 最終適用commit: `57830bd0738998d2856711ddcdb8078844566199`
 - publication ID: `accept-33158737917-1-tech_article_nortification-work_record_014`
-- E2E終了後のsource registry: `enabled: false`
+- 現在のsource registry: `enabled: true`（main更新時の自動受入）
 
-この証跡は手動E2Eの完了確認に使うが、恒久的な `enabled: true` や、次のrecordの `publish: true` を自動的に承認するものではない。切替の実施状況は、sandbox-pages側のregistryと人間reviewerの承認記録を正本とする。
+この証跡は手動E2Eの完了確認に使う。現在の有効化状態と受入条件は、sandbox-pages側のregistryと公開ルールを正本とする。
 
-## `enabled: true` に変更できる条件
+## 公開要求の条件
 
-次の全項目を確認し、確認者と日時をIssueまたは作業記録に残してから、sandbox-pages側のsource registryを変更する。
+次の全項目を確認し、確認者と日時をIssueまたは作業記録に残す。
 
 - source registryのrepository、branch、source directory、metadata directory、destination directory、`a_rendered` が正しい。
 - generator ID、ファイル種別、ファイル数・サイズ上限、安全validator、digest/provenance検査が確定している。
-- `enabled: false` のdry-runと、既存成果物がない場合のno-op受入が成功している。
+- source registryの受入が有効である。
 - 新規record 1件について、固定commitを指定した受入、Pages deploy、想定URL、必要な通知を人間が確認している。
 - provenanceのsource SHA、対象basename、生成物のdigest、deploy結果が相互に一致している。
 - 失敗時に停止し、監査可能な取り下げまたは再実行へ移れることを確認している。
 
-切替後も、対象record、固定commit、確認者を記録する。既存10件を有効化のタイミングで一括公開しない。
+対象record、固定commit、確認者を記録する。既存recordを一括公開しない。
 
 ## `publish: true` の扱い
 
@@ -44,7 +43,7 @@ Issue 009に記録された2026-08-28の手動E2Eでは、受入、apply、Pages
 2. Markdownとmetadataを同じcommitに含め、source-side validatorを実行する。
 3. reviewerが内容、秘密情報の不存在、公開先URL、通知の要否を確認する。
 4. metadataの `publish: true` と、同じcommitの40文字SHA、basenameを記録する。
-5. `publish-work-record.yml` を手動起動し、入力は `project_id`、`source_commit_sha`、`target_basename` の3つだけにする。
+5. main pushの自動検出、または `publish-work-record.yml` の `source_commit_sha`、`target_basename` による手動起動を使う。
 6. sandbox-pagesの受入結果、Pages URL、provenance、通知結果を確認する。
 
 公開要求workflowが対象record以外を変更することは想定しない。受入失敗時は再送せず、失敗理由と固定SHAを確認してから新しい承認を得る。
@@ -59,15 +58,14 @@ git diff --check
 git status --short
 ```
 
-そのcommitのSHAを確認し、GitHub Actionsの `Publish work record request` を手動起動する。
+そのcommitのSHAを確認する。main pushならworkflowが対象を自動検出し、手動起動なら次の2入力を指定する。
 
 ```text
-project_id:        tech_article_nortification
 source_commit_sha: <対象commitの40文字SHA>
 target_basename:   work_record_###
 ```
 
-Actionsが指定SHAをcheckoutしてrecordを再検証し、成功した場合だけsandbox-pagesの受入workflowへdispatchする。dispatch認証は、`PUBLISH_APP_ID`と`PUBLISH_APP_PRIVATE_KEY`が両方設定されている場合に、`actions/create-github-app-token@v3`で`sandbox-pages`だけを対象とする短期tokenを発行する。App設定が未登録の場合だけ移行用の`SANDBOX_PAGES_DISPATCH_TOKEN`へfallbackする。source側でsandbox-pagesをcheckout・編集・commit・pushしたり、Contents write tokenを使ったりしない。
+Actionsが指定SHAをcheckoutしてrecordを再検証し、成功した場合だけsandbox-pagesの受入workflowへdispatchする。dispatch認証は、`PUBLISH_APP_ID`と`PUBLISH_APP_PRIVATE_KEY`で`sandbox-pages`だけを対象とする短期GitHub App installation tokenを発行する。source側でsandbox-pagesをcheckout・編集・commit・pushしたり、Contents write tokenを使ったりしない。
 
 source repositoryのActions Secretは次の名前を使う。
 
@@ -76,7 +74,7 @@ PUBLISH_APP_ID
 PUBLISH_APP_PRIVATE_KEY
 ```
 
-App tokenはworkflow実行時に発行され、保存・ログ出力しない。Appが未設定の移行期間だけ、旧 `SANDBOX_PAGES_DISPATCH_TOKEN` を使用する。
+App tokenはworkflow実行時に発行され、保存・ログ出力しない。旧 `SANDBOX_PAGES_DISPATCH_TOKEN` は使用しない。
 
 ## 緊急停止
 

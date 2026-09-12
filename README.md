@@ -28,9 +28,9 @@ work-records/
 
 既存の`Issues/Issue_###.md`は課題資料であり、公開用作業記録ではありません。内容の確認とmetadata作成を行わずに、自動公開対象へ含めないでください。
 
-公開要求時は、検証済みcommitの固定SHAと対象basenameを使い、公開リポジトリのworkflowへ`project_id`、`source_commit_sha`、`target_basename`の3入力を渡します。公開リポジトリをcheckout・編集・commit・pushする権限やtokenは、このリポジトリのworkflowへ渡しません。
+作業記録本文の最新テンプレートは[作業記録テンプレート](docs/WORK_RECORD_TEMPLATE.md)にまとめています。公開要求時は、main更新で変更された`publish: true`のrecordを自動検出します。手動起動では検証済みcommitの固定SHAと対象basenameの2入力だけを指定し、`project_id`と公開先はworkflowの固定設定から決定します。公開リポジトリをcheckout・編集・commit・pushする権限やtokenは、このリポジトリのworkflowへ渡しません。
 
-公開契約の正本は、[sandbox-pagesの公開ルール](https://github.com/tj-999-comp/sandbox-pages/blob/main/projects/README.md)と[共通標準](https://github.com/tj-999-comp/sandbox-pages/blob/main/docs/PORTFOLIO_STANDARD.md)です。sandbox-pages側の受入・`a_rendered` renderer・手動E2Eが完了するまで、sourceは無効状態として扱います。
+公開契約の正本は、[sandbox-pagesの公開ルール](https://github.com/tj-999-comp/sandbox-pages/blob/main/projects/README.md)と[共通標準](https://github.com/tj-999-comp/sandbox-pages/blob/main/docs/PORTFOLIO_STANDARD.md)です。現在のsource registryでは`tech_article_nortification`が`enabled: true`で登録され、main更新時の受入が有効です。
 
 ### 作業記録のsource-side検証
 
@@ -44,15 +44,14 @@ python3 scripts/validate_work_records.py --require-publish-false
 
 ### 公開要求workflow
 
-[publish-work-record.yml](.github/workflows/publish-work-record.yml)は、次の3入力だけを受け取る手動起動workflowです。
+[publish-work-record.yml](.github/workflows/publish-work-record.yml)は、mainの`work-records/**`変更を自動検出し、変更された`publish: true`のrecordだけをsandbox-pagesへ送ります。手動起動では次の2入力を受け取ります。
 
-- `project_id`: `tech_article_nortification`との完全一致
 - `source_commit_sha`: 40桁の固定commit SHA
 - `target_basename`: `work_record_###`形式の単一basename
 
-workflowは指定SHAをcheckoutし、対象recordのMarkdown・metadataと`publish: true`を検証します。検証に失敗した場合はsandbox-pagesへdispatchせず、成功時だけ`accept-source.yml`へ3入力を渡します。cross-repository dispatchは、`PUBLISH_APP_ID`と`PUBLISH_APP_PRIVATE_KEY`が登録されている場合、sandbox-pagesだけを対象にした短期GitHub App installation token（`Actions: write`のみ）をworkflow内で発行して行います。App設定が未登録の場合だけ、移行用の`SANDBOX_PAGES_DISPATCH_TOKEN`へfallbackします。いずれもContents writeは付与せず、token、記事本文、Secret値はログへ出力しません。
+workflowは指定SHAをcheckoutし、対象recordのMarkdown・metadataと`publish: true`を検証します。検証に失敗した場合はsandbox-pagesへdispatchせず、成功時だけ`accept-source.yml`へ固定の`project_id`、source SHA、対象basenameを渡します。cross-repository dispatchは、sandbox-pagesだけを対象にした短期GitHub App installation token（`Actions: write`のみ）で行います。Contents writeは付与せず、token、記事本文、Secret値はログへ出力しません。
 
-受入側の`a_rendered` rendererは`sandbox-pages` Issue #13 / PR #57でmainへ反映済みです。Issue #9の手動E2Eでは、承認済みの対象1件だけを`publish: true`にし、固定commitを指定して公開要求を実行しました。E2E後の恒久的な`enabled`・`publish`運用切替は、明示的な人間承認がある場合だけ実施します。
+受入側の`a_rendered` rendererは`sandbox-pages` Issue #13 / PR #57でmainへ反映済みです。Issue #9の手動E2Eでは、承認済みの対象1件を固定commitで公開要求し、受入、Pages、公開URL、provenance、通知を確認しました。現在は公開側のsource registryで`enabled: true`が設定されています。
 
 運用切替、公開承認、緊急停止、rollback、通知再送、digest drift時の対応手順は[Portfolio公開運用手順](docs/PORTFOLIO_OPERATIONS.md)にまとめています。自動workflowが`enabled`や`publish`を変更することはありません。
 

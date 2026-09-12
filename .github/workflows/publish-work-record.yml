@@ -1,18 +1,19 @@
-name: Publish work record request
+name: Request work-record publish
+
+run-name: Publish ${{ inputs.target_basename || 'changed records' }}
 
 on:
+  push:
+    branches: [main]
+    paths: ['work-records/**']
   workflow_dispatch:
     inputs:
-      project_id:
-        description: "Fixed source project identifier"
-        required: true
-        type: string
       source_commit_sha:
-        description: "Exact 40-character source commit SHA"
+        description: Exact 40-character source commit SHA to validate and publish
         required: true
         type: string
       target_basename:
-        description: "One work-record basename, for example work_record_014"
+        description: Numbered work-record basename, for example work_record_001
         required: true
         type: string
 
@@ -20,127 +21,90 @@ permissions:
   contents: read
 
 env:
-  EXPECTED_PROJECT_ID: tech_article_nortification
-  TARGET_REPOSITORY: tj-999-comp/sandbox-pages
-  TARGET_WORKFLOW: accept-source.yml
-  TARGET_REF: main
+  PROJECT_ID: tech_article_nortification
+  PUBLISH_REPOSITORY: tj-999-comp/sandbox-pages
+  PUBLISH_WORKFLOW: accept-source.yml
+  PUBLISH_REF: main
 
 jobs:
-  validate-and-dispatch:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      source_commit_sha: ${{ steps.targets.outputs.source_commit_sha }}
+      target_basenames: ${{ steps.targets.outputs.target_basenames }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_commit_sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - id: targets
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE_SHA: ${{ github.event.before }}
+          AFTER_SHA: ${{ github.sha }}
+          MANUAL_SOURCE_COMMIT_SHA: ${{ inputs.source_commit_sha }}
+          MANUAL_TARGET_BASENAME: ${{ inputs.target_basename }}
+        run: |
+          set -euo pipefail
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            source_commit_sha="$MANUAL_SOURCE_COMMIT_SHA"
+            target_basenames="[\"$MANUAL_TARGET_BASENAME\"]"
+          else
+            source_commit_sha="$AFTER_SHA"
+            target_basenames="$(python3 scripts/dev/list_changed_work_record_targets.py --before "$BEFORE_SHA" --after "$AFTER_SHA" --publish-only)"
+          fi
+          echo "source_commit_sha=$source_commit_sha" >> "$GITHUB_OUTPUT"
+          echo "target_basenames=$target_basenames" >> "$GITHUB_OUTPUT"
+
+  validate:
+    needs: prepare
+    if: needs.prepare.outputs.target_basenames != '[]'
     runs-on: ubuntu-latest
     steps:
-      - name: Validate request shape
-        shell: bash
-        env:
-          REQUEST_PROJECT_ID: ${{ inputs.project_id }}
-          REQUEST_SOURCE_COMMIT_SHA: ${{ inputs.source_commit_sha }}
-          REQUEST_TARGET_BASENAME: ${{ inputs.target_basename }}
-        run: |
-          set -euo pipefail
-          if [[ "$REQUEST_PROJECT_ID" != "$EXPECTED_PROJECT_ID" ]]; then
-            echo "project_id does not match the fixed source project" >&2
-            exit 1
-          fi
-          if [[ ! "$REQUEST_SOURCE_COMMIT_SHA" =~ ^[0-9a-fA-F]{40}$ ]]; then
-            echo "source_commit_sha must be a 40-character commit SHA" >&2
-            exit 1
-          fi
-          if [[ ! "$REQUEST_TARGET_BASENAME" =~ ^work_record_[0-9]{3}$ ]]; then
-            echo "target_basename must be one work_record_### basename" >&2
-            exit 1
-          fi
-
-      - name: Checkout requested source commit
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.source_commit_sha }}
-          fetch-depth: 1
+          ref: ${{ needs.prepare.outputs.source_commit_sha }}
           persist-credentials: false
-
-      - name: Validate requested source commit and record
-        shell: bash
+      - run: python3 scripts/validate_work_records.py
+      - name: Validate selected targets
         env:
-          REQUEST_PROJECT_ID: ${{ inputs.project_id }}
-          REQUEST_SOURCE_COMMIT_SHA: ${{ inputs.source_commit_sha }}
-          REQUEST_TARGET_BASENAME: ${{ inputs.target_basename }}
+          SOURCE_COMMIT_SHA: ${{ needs.prepare.outputs.source_commit_sha }}
+          TARGET_BASENAMES_JSON: ${{ needs.prepare.outputs.target_basenames }}
         run: |
           set -euo pipefail
-          checked_out_sha="$(git rev-parse HEAD | tr '[:upper:]' '[:lower:]')"
-          requested_sha="$(printf '%s' "$REQUEST_SOURCE_COMMIT_SHA" | tr '[:upper:]' '[:lower:]')"
-          if [[ "$checked_out_sha" != "$requested_sha" ]]; then
-            echo "checkout did not resolve to the requested commit" >&2
-            exit 1
-          fi
-          python3 scripts/validate_publish_request.py \
-            --project-id "$REQUEST_PROJECT_ID" \
-            --source-commit-sha "$REQUEST_SOURCE_COMMIT_SHA" \
-            --target-basename "$REQUEST_TARGET_BASENAME"
+          while IFS= read -r target_basename; do
+            python3 scripts/validate_publish_request.py \
+              --project-id "$PROJECT_ID" \
+              --source-commit-sha "$SOURCE_COMMIT_SHA" \
+              --target-basename "$target_basename"
+          done < <(jq -r '.[]' <<< "$TARGET_BASENAMES_JSON")
 
-      - name: Select dispatch authentication
-        id: auth
-        env:
-          PUBLISH_APP_ID: ${{ secrets.PUBLISH_APP_ID }}
-          PUBLISH_APP_PRIVATE_KEY: ${{ secrets.PUBLISH_APP_PRIVATE_KEY }}
-          PAT_TOKEN: ${{ secrets.SANDBOX_PAGES_DISPATCH_TOKEN }}
-        run: |
-          set -euo pipefail
-          app_id_set=false
-          private_key_set=false
-          pat_set=false
-          [[ -n "$PUBLISH_APP_ID" ]] && app_id_set=true
-          [[ -n "$PUBLISH_APP_PRIVATE_KEY" ]] && private_key_set=true
-          [[ -n "$PAT_TOKEN" ]] && pat_set=true
-
-          if [[ "$app_id_set" != "$private_key_set" ]]; then
-            echo "PUBLISH_APP_ID and PUBLISH_APP_PRIVATE_KEY must be configured together" >&2
-            exit 1
-          fi
-
-          if [[ "$app_id_set" == "true" ]]; then
-            echo "use_app=true" >> "$GITHUB_OUTPUT"
-            echo "auth_mode=github-app" >> "$GITHUB_OUTPUT"
-          elif [[ "$pat_set" == "true" ]]; then
-            echo "use_app=false" >> "$GITHUB_OUTPUT"
-            echo "auth_mode=fine-grained-pat" >> "$GITHUB_OUTPUT"
-          else
-            echo "Configure GitHub App credentials or SANDBOX_PAGES_DISPATCH_TOKEN" >&2
-            exit 1
-          fi
-
+  dispatch:
+    needs: [prepare, validate]
+    if: needs.validate.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
       - name: Create GitHub App installation token
         id: app-token
-        if: steps.auth.outputs.use_app == 'true'
         uses: actions/create-github-app-token@v3
         with:
-          app-id: ${{ secrets.PUBLISH_APP_ID }}
+          app-id: ${{ secrets.PUBLISH_APP_ID || vars.PUBLISH_APP_ID }}
           private-key: ${{ secrets.PUBLISH_APP_PRIVATE_KEY }}
           owner: tj-999-comp
           repositories: sandbox-pages
           permission-actions: write
-
-      - name: Dispatch sandbox-pages acceptance workflow
-        shell: bash
+      - name: Dispatch one request per target
         env:
-          APP_TOKEN: ${{ steps.app-token.outputs.token }}
-          PAT_TOKEN: ${{ secrets.SANDBOX_PAGES_DISPATCH_TOKEN }}
-          AUTH_MODE: ${{ steps.auth.outputs.auth_mode }}
-          REQUEST_PROJECT_ID: ${{ inputs.project_id }}
-          REQUEST_SOURCE_COMMIT_SHA: ${{ inputs.source_commit_sha }}
-          REQUEST_TARGET_BASENAME: ${{ inputs.target_basename }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          SOURCE_COMMIT_SHA: ${{ needs.prepare.outputs.source_commit_sha }}
+          TARGET_BASENAMES_JSON: ${{ needs.prepare.outputs.target_basenames }}
         run: |
           set -euo pipefail
-          if [[ -n "$APP_TOKEN" ]]; then
-            export GH_TOKEN="$APP_TOKEN"
-          else
-            export GH_TOKEN="$PAT_TOKEN"
-          fi
-          test -n "$GH_TOKEN"
-          echo "Dispatch authentication: $AUTH_MODE"
-
-          gh api \
-            --method POST \
-            "repos/$TARGET_REPOSITORY/actions/workflows/$TARGET_WORKFLOW/dispatches" \
-            -f "ref=$TARGET_REF" \
-            -f "inputs[project_id]=$REQUEST_PROJECT_ID" \
-            -f "inputs[source_commit_sha]=$REQUEST_SOURCE_COMMIT_SHA" \
-            -f "inputs[target_basename]=$REQUEST_TARGET_BASENAME"
+          while IFS= read -r target_basename; do
+            gh api --method POST "repos/$PUBLISH_REPOSITORY/actions/workflows/$PUBLISH_WORKFLOW/dispatches" \
+              -f "ref=$PUBLISH_REF" \
+              -f "inputs[project_id]=$PROJECT_ID" \
+              -f "inputs[source_commit_sha]=$SOURCE_COMMIT_SHA" \
+              -f "inputs[target_basename]=$target_basename"
+          done < <(jq -r '.[]' <<< "$TARGET_BASENAMES_JSON")
