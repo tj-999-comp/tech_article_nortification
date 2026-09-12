@@ -28,7 +28,7 @@ work-records/
 
 既存の`Issues/Issue_###.md`は課題資料であり、公開用作業記録ではありません。内容の確認とmetadata作成を行わずに、自動公開対象へ含めないでください。
 
-作業記録本文の最新テンプレートは[作業記録テンプレート](docs/WORK_RECORD_TEMPLATE.md)にまとめています。公開要求時は、main更新で変更された`publish: true`のrecordを自動検出します。手動起動では検証済みcommitの固定SHAと対象basenameの2入力だけを指定し、`project_id`と公開先はworkflowの固定設定から決定します。公開リポジトリをcheckout・編集・commit・pushする権限やtokenは、このリポジトリのworkflowへ渡しません。
+作業記録本文の最新テンプレートは[作業記録テンプレート](docs/WORK_RECORD_TEMPLATE.md)にまとめています。テンプレートのmetadataはデフォルトで`publish: true`とし、main更新で公開・Slack通知まで行います。下書き・非公開にする場合だけ`publish: false`へ変更します。手動起動では検証済みcommitの固定SHAと対象basenameの2入力だけを指定し、`project_id`と公開先はworkflowの固定設定から決定します。公開リポジトリをcheckout・編集・commit・pushする権限やtokenは、このリポジトリのworkflowへ渡しません。
 
 公開契約の正本は、[sandbox-pagesの公開ルール](https://github.com/tj-999-comp/sandbox-pages/blob/main/projects/README.md)と[共通標準](https://github.com/tj-999-comp/sandbox-pages/blob/main/docs/PORTFOLIO_STANDARD.md)です。現在のsource registryでは`tech_article_nortification`が`enabled: true`で登録され、main更新時の受入が有効です。
 
@@ -40,13 +40,13 @@ work-records/
 python3 scripts/validate_work_records.py --require-publish-false
 ```
 
-`.github/workflows/validate-work-records.yml`は、mainへのpush、Pull Request、手動起動でこの構造検証だけを実行します。`publish: true`は公開要求の候補を示すだけで、公開リポジトリへのworkflow dispatch、Secret登録、外部通知は行いません。公開前に全件を無効状態で確認したい場合は、上記コマンドの`--require-publish-false`を使います。通知workflowは`.github/workflows/daily-qiita-notify.yml`にありますが、GASとの二重起動を避けるため`workflow_dispatch`専用です。
+`.github/workflows/validate-work-records.yml`は、mainへのpush、Pull Request、手動起動でこの構造検証だけを実行します。`publish: true`は公開要求の候補を示す値で、公開側へのdispatchとSlack通知は`request-publish.yml`が担当します。公開前に全件を無効状態で確認したい場合は、上記コマンドの`--require-publish-false`を使います。通知workflowは`.github/workflows/daily-qiita-notify.yml`にありますが、GASとの二重起動を避けるため`workflow_dispatch`専用です。
 
 ### 公開要求workflow
 
 [request-publish.yml](.github/workflows/request-publish.yml)は、mainへの作業記録pushを自動検出し、変更された全recordを公開要求します。作業記録本文の最新テンプレートは[作業記録テンプレート](docs/WORK_RECORD_TEMPLATE.md)にまとめています。再公開や復旧時は、固定SHAと対象basenameを指定して手動起動できます。
 
-metadataの `publish: false` は下書き・非公開を意味し、mainへpushしても公開側へのdispatchやSlack通知は発生しません。公開とSlack通知まで必要な作業記録だけ、内容確認後に `publish: true` を設定します。
+テンプレートの `publish: true` が標準で、mainへpushすると公開側へのdispatchとSlack通知が発生します。`publish: false` は下書き・非公開にする場合の明示的な例外で、mainへpushしても公開側へのdispatchやSlack通知は発生しません。
 
 - `source_commit_sha`: 40桁の固定commit SHA
 - `target_basename`: `work_record_###`形式の単一basename

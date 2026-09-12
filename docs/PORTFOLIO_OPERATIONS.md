@@ -8,7 +8,7 @@
 
 - source registry の `tech_article_nortification` は `enabled: true` である。
 - GitHub Actions の `request-publish.yml` は、mainへの作業記録pushで自動公開要求し、手動の固定SHA・対象basename指定も受け付ける。
-- 作業記録の通常追加では metadata の `publish: false` を使い、内容確認とreview後に公開対象だけを `publish: true` にする。
+- 作業記録の通常追加では metadata の `publish: true` を使い、mainへのpush後に公開・Slack通知まで行う。下書き・非公開の場合だけ `publish: false` にする。
 - 複数recordを含むpushはrecordごとにdispatchし、sandbox-pagesのPages反映成功後にSlack通知する。
 
 自動workflowは `enabled` や `publish` を変更しない。公開停止が必要な場合はsandbox-pages側のregistryと受入workflowを停止する。
@@ -22,7 +22,7 @@ Issue 009に記録された2026-08-28の手動E2Eでは、受入、apply、Pages
 - publication ID: `accept-33158737917-1-tech_article_nortification-work_record_014`
 - 現在のsource registry: `enabled: true`
 
-この証跡は受入経路の完了確認に使う。公開対象の `publish: true` はrecordごとに内容確認とreviewを経て設定し、切替の実施状況はsandbox-pages側のregistryと人間reviewerの承認記録を正本とする。
+この証跡は受入経路の完了確認に使う。`publish: true` が標準であり、`publish: false` にする場合は非公開理由をrecordごとに確認する。切替の実施状況はsandbox-pages側のregistryと人間reviewerの承認記録を正本とする。
 
 ## 公開要求の条件
 

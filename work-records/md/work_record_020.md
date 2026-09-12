@@ -13,11 +13,11 @@
 - 成果物: 公開対象として明示した本作業記録、metadata、公開通知条件を説明する運用記録。
 - 検証結果: `work_record_019` を含む直近のmain pushでは `Selected work-record targets: []` となり、sandbox-pagesへのdispatchが発生していなかった。一方、`work_record_018`（`publish: true`）は受入・Pages・Slack通知まで成功していた。
 - 未解決事項: Slack Webhookの値そのものはSecretのためリポジトリから確認できない。ただし公開側の直近受入runでは通知jobが成功している。
-- 次工程への引き継ぎ: 今後、公開・Slack通知まで必要な作業記録はmetadataの `publish: true` をreviewで明示する。
+- 次工程への引き継ぎ: 今後はテンプレートの既定値 `publish: true` を使い、下書き・非公開の場合だけ `publish: false` をreviewで明示する。
 
 ## 主要な判断
-- 判断: 今回の作業記録のmetadataを `publish: true` にする。
-- 理由: 公開側の正本契約では、`publish: false` は通常の非公開記録であり、main push時の公開要求・Slack通知を発生させない。今回の依頼は公開側Slack通知までの実行を明示的に求めているため。
+- 判断: 作業記録テンプレートのmetadata既定値を `publish: true` にする。
+- 理由: このリポジトリでは作業記録をmainへpushしたら公開・Slack通知まで行う運用とし、下書き・非公開だけを `publish: false` の明示的な例外にするため。
 - 判断: `request-publish.yml` の `publish: true` 限定条件は変更しない。
 - 理由: `publish: false` の下書きや非公開記録まで自動公開・通知すると、公開承認の境界を壊すため。
 
