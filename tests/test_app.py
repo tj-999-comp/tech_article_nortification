@@ -234,6 +234,70 @@ class QiitaFetchTests(unittest.TestCase):
         self.assertEqual([article.title for article in articles], expected_titles)
         self.assertEqual(len(articles), 20)
 
+    def test_fetch_qiita_articles_excludes_prum_before_applying_limit(self):
+        items = [
+            {
+                "title": "PRUMの記事",
+                "url": "https://qiita.com/example/items/prum",
+                "body": "本文",
+                "user": {"id": "prum-user", "organization": "株式会社PRUM"},
+                "likes_count": 100,
+                "created_at": "2026-05-17T00:00:00+09:00",
+                "tags": [],
+            },
+            {
+                "title": "対象記事1",
+                "url": "https://qiita.com/example/items/1",
+                "body": "本文",
+                "user": {"id": "user1", "organization": "別会社"},
+                "likes_count": 90,
+                "created_at": "2026-05-17T00:00:00+09:00",
+                "tags": [],
+            },
+            {
+                "title": "対象記事2",
+                "url": "https://qiita.com/example/items/2",
+                "body": "本文",
+                "user": {"id": "user2", "organization": "別会社"},
+                "likes_count": 80,
+                "created_at": "2026-05-17T00:00:00+09:00",
+                "tags": [],
+            },
+        ]
+
+        with patch.dict("os.environ", {}, clear=True):
+            articles = app.fetch_qiita_trending_articles(
+                lookback_days=7,
+                limit=2,
+                fetcher=lambda method, url, **kwargs: items,
+                now=datetime(2026, 5, 18, 0, 0, tzinfo=timezone.utc),
+            )
+
+        self.assertEqual([article.title for article in articles], ["対象記事1", "対象記事2"])
+
+        with patch.dict("os.environ", {}, clear=True):
+            raw_articles = app.fetch_article_info(
+                lookback_days=7,
+                limit=2,
+                fetcher=lambda method, url, **kwargs: items,
+                now=datetime(2026, 5, 18, 0, 0, tzinfo=timezone.utc),
+            )
+        self.assertEqual([article["title"] for article in raw_articles], ["対象記事1", "対象記事2"])
+
+    def test_excluded_organization_matching_handles_company_name_variants(self):
+        excluded = app._excluded_organizations()
+
+        self.assertTrue(
+            app._is_excluded_qiita_item(
+                {"user": {"organization": "ＰＲＵＭ株式会社"}}, excluded
+            )
+        )
+        self.assertFalse(
+            app._is_excluded_qiita_item(
+                {"user": {"organization": "株式会社PRUMホールディングス"}}, excluded
+            )
+        )
+
     def test_fetch_qiita_trending_articles_uses_authorization_header_when_token_set(self):
         captured = {}
 

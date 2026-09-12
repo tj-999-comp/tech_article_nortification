@@ -286,12 +286,15 @@ run_pipeline.py（Step1 → Step2 → Step3 Slack → Step4 Notion）
 - `QIITA_LOOKBACK_DAYS`: 取得対象期間（日数、任意。既定値は `7`）
 - `QIITA_FETCH_LIMIT`: Qiitaから取得する最大件数（任意。既定値は `20`）
 - `QIITA_NOTIFY_LIMIT`: Slack通知・Notion同期する最大件数（任意。既定値は `10`）
+- `QIITA_EXCLUDED_ORGANIZATIONS`: Qiita著者の所属先による除外対象（任意。カンマ区切り、既定値は `株式会社PRUM`。空文字で除外なし）
 - `DRY_RUN`: `true` を指定すると外部通知せず payload を標準出力に表示
 
 ### 取得ロジック（任意）
 
 - `QIITA_API_TOKEN`: Qiita API アクセストークン
   - 設定すると `Authorization: Bearer ...` で取得し、匿名アクセスよりレート制限に強くなります
+
+Qiita記事の取得時は、著者の `user.organization` が除外対象に一致する記事を、いいね数順の上限適用前に除外します。会社名はUnicode正規化・空白除去・法人格の前後入れ替えを考慮して比較します。除外件数はStep1の実行ログに出力されます。
 
 このアプリは親投稿 1 件 + 記事ごとのスレッド返信で通知します。
 `SLACK_BOT_TOKEN` と `SLACK_CHANNEL` が未設定の場合、通常実行はエラーで停止します。

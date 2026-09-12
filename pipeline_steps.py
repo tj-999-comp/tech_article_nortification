@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import unicodedata
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -11,6 +12,7 @@ from urllib import error, parse, request
 
 JST = timezone(timedelta(hours=9))
 QIITA_API_URL = "https://qiita.com/api/v2/items"
+DEFAULT_QIITA_EXCLUDED_ORGANIZATIONS = ("株式会社PRUM",)
 NOTION_QUERY_URL = "https://api.notion.com/v1/databases/{database_id}/query"
 NOTION_PAGE_URL = "https://api.notion.com/v1/pages"
 NOTION_VERSION = "2022-06-28"
@@ -361,6 +363,60 @@ def _sort_qiita_items(items: list[dict]) -> list[dict]:
     )
 
 
+def _normalize_organization(value: str | None) -> str:
+    normalized = unicodedata.normalize("NFKC", value or "")
+    return re.sub(r"\s+", "", normalized).casefold()
+
+
+def _organization_keys(value: str | None) -> set[str]:
+    normalized = _normalize_organization(value)
+    if not normalized:
+        return set()
+
+    keys = {normalized}
+    for corporate_mark in ("株式会社", "(株)"):
+        if normalized.startswith(corporate_mark):
+            keys.add(normalized[len(corporate_mark) :])
+        if normalized.endswith(corporate_mark):
+            keys.add(normalized[: -len(corporate_mark)])
+    return {key for key in keys if key}
+
+
+def _excluded_organizations() -> set[str]:
+    configured = os.getenv("QIITA_EXCLUDED_ORGANIZATIONS")
+    if configured is None:
+        organizations = DEFAULT_QIITA_EXCLUDED_ORGANIZATIONS
+    else:
+        organizations = tuple(
+            organization.strip()
+            for organization in configured.split(",")
+            if organization.strip()
+        )
+
+    excluded: set[str] = set()
+    for organization in organizations:
+        excluded.update(_organization_keys(organization))
+    return excluded
+
+
+def _is_excluded_qiita_item(item: dict, excluded_organizations: set[str]) -> bool:
+    organization = (item.get("user") or {}).get("organization")
+    return bool(_organization_keys(organization) & excluded_organizations)
+
+
+def _select_qiita_items(items: list[dict], limit: int) -> tuple[list[dict], int]:
+    excluded_organizations = _excluded_organizations()
+    selected: list[dict] = []
+    excluded_count = 0
+    for item in _sort_qiita_items(items):
+        if _is_excluded_qiita_item(item, excluded_organizations):
+            excluded_count += 1
+            continue
+        if len(selected) < max(limit, 0):
+            selected.append(item)
+    return selected, excluded_count
+
+
 def fetch_qiita_trending_articles(
     *,
     lookback_days: int,
@@ -372,8 +428,8 @@ def fetch_qiita_trending_articles(
     since = (reference - timedelta(days=lookback_days)).date().isoformat()
     query = f"created:>{since}"
     items = _fetch_qiita_items(query=query, fetcher=fetcher)
-    articles = [article_from_qiita_item(item) for item in _sort_qiita_items(items)]
-    return articles[:limit]
+    selected_items, _ = _select_qiita_items(items, limit)
+    return [article_from_qiita_item(item) for item in selected_items]
 
 
 def save_articles_snapshot(
@@ -519,8 +575,17 @@ def fetch_article_info(
     since = (reference - timedelta(days=lookback_days)).date().isoformat()
     query = f"created:>{since}"
     items = _fetch_qiita_items(query=query, fetcher=fetcher)
+    selected_items, excluded_count = _select_qiita_items(items, limit)
+    configured_exclusions = os.getenv(
+        "QIITA_EXCLUDED_ORGANIZATIONS",
+        ", ".join(DEFAULT_QIITA_EXCLUDED_ORGANIZATIONS),
+    )
+    print(
+        "qiita filter: excluded "
+        f"{excluded_count} articles (organizations: {configured_exclusions or 'none'})"
+    )
     results: list[dict] = []
-    for item in _sort_qiita_items(items)[:limit]:
+    for item in selected_items:
         results.append(
             {
                 "title": (item.get("title") or "").strip(),
