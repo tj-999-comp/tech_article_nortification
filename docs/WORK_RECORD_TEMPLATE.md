@@ -73,10 +73,10 @@ date: "YYYY-MM-DD"
 project_id: tech_article_nortification
 tags:
   - <tag>
-publish: false
+publish: true
 ````
 
-通常の作業記録は `publish: false` とする。公開を明示的に依頼・承認された1件だけを、固定commitと対象basenameを確認したうえで `publish: true` にする。
+このテンプレートのデフォルトは `publish: true` とする。作業記録をmainへpushした際に公開・Slack通知まで行うためである。下書き・非公開にしたい場合だけ、内容確認時に明示的に `publish: false` へ変更する。
 
 ## 検証
 
