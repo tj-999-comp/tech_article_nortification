@@ -24,13 +24,13 @@
 ## 最終結果
 - 解決したこと: Slack通知が来なかった直接原因を `publish: false` による対象除外と特定し、今回の作業記録を公開・通知対象にした。
 - 変更ファイル: `work-records/md/work_record_020.md`、`work-records/metadata/work_record_020.yml`、本作業記録の運用説明。
-- 検証結果: source validator、PR CI、main push後の公開側受入・Pages deploy・Slack通知の結果をマージ後に確認する。
+- 検証結果: `python3 scripts/validate_work_records.py`（20件成功）、`python3 -m unittest discover -s tests`（31件成功）、`git diff --check`。main push後の生成元run `34665220708` と公開側run `34665234595` が成功し、公開側の `Notify Slack after successful publish` jobも成功した。公開URLは `https://tj-999-comp.github.io/sandbox-pages/projects/tech_article_nortification/work_record_020.html`。
 - 作業ブランチ: `codex/fix-work-record-slack-notification`
-- コミット: 作成予定
-- PR: 作成予定
-- PRレビュー・CI: 作成予定
+- コミット: `39343fb`（公開対象化）
+- PR: [#33 作業記録公開時のSlack通知を有効化](https://github.com/tj-999-comp/tech_article_nortification/pull/33)
+- PRレビュー・CI: `validate` 成功（GitHub Actions run `34665202254`）、PR #33 merge済み。
 - 未解決事項: `publish: false` の作業記録は仕様上通知されない。通知が必要な記録では、公開前レビューで `publish: true` を設定する。
-- 次アクション: PRをmergeし、main push起点の公開要求と公開側Slack通知を実行ログで確認する。
+- 次アクション: 次回以降、公開・通知が必要な作業記録では `publish: true` をレビューで確認する。
 
 ## GitHub Issue状況
 確認日時（JST）: 2026-09-12 10:35
