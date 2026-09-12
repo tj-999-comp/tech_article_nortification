@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import os
 import re
-import time
 import unicodedata
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -21,12 +20,6 @@ NOTION_VERSION = "2022-06-28"
 # callable only when an explicit endpoint is supplied for compatibility.
 GITHUB_MODELS_URL = ""
 SLACK_CHAT_POST_MESSAGE_URL = "https://slack.com/api/chat.postMessage"
-SLACK_RETRYABLE_ERRORS = {
-    "internal_error",
-    "request_timeout",
-    "service_unavailable",
-    "ratelimited",
-}
 
 
 @dataclass(frozen=True)
@@ -815,28 +808,25 @@ def post_to_slack_thread(
     articles: list[Article],
     now: datetime | None = None,
     fetcher: Callable[..., dict | list] = http_json,
-) -> dict[str, str]:
+) -> None:
     headers = {"Authorization": f"Bearer {slack_bot_token}"}
     parent_payload = {
         "channel": slack_channel,
         **build_slack_thread_parent_payload(articles, now=now),
     }
-    parent_response = _post_slack_message(
-        parent_payload,
+    parent_response = fetcher(
+        "POST",
+        SLACK_CHAT_POST_MESSAGE_URL,
         headers=headers,
-        fetcher=fetcher,
-        message_kind="parent",
+        body=parent_payload,
     )
+
+    if not isinstance(parent_response, dict) or not parent_response.get("ok"):
+        raise RuntimeError(f"Slack parent post failed: {parent_response}")
 
     thread_ts = parent_response.get("ts")
     if not thread_ts:
         raise RuntimeError("Slack parent post response missing ts")
-    posted_channel = parent_response.get("channel")
-    if posted_channel and posted_channel != slack_channel:
-        raise RuntimeError(
-            "Slack parent post channel mismatch: "
-            f"requested={slack_channel} actual={posted_channel}"
-        )
 
     reply_payload = {
         "channel": slack_channel,
@@ -844,69 +834,14 @@ def post_to_slack_thread(
         "reply_broadcast": False,
         **build_slack_thread_summary_reply_payload(articles),
     }
-    reply_response = _post_slack_message(
-        reply_payload,
+    reply_response = fetcher(
+        "POST",
+        SLACK_CHAT_POST_MESSAGE_URL,
         headers=headers,
-        fetcher=fetcher,
-        message_kind="thread reply",
+        body=reply_payload,
     )
-    reply_ts = reply_response.get("ts")
-    if not reply_ts:
-        raise RuntimeError("Slack thread reply response missing ts")
-    reply_channel = reply_response.get("channel")
-    if reply_channel and reply_channel != slack_channel:
-        raise RuntimeError(
-            "Slack thread reply channel mismatch: "
-            f"requested={slack_channel} actual={reply_channel}"
-        )
-
-    return {
-        "channel": posted_channel or slack_channel,
-        "parent_ts": str(thread_ts),
-        "reply_ts": str(reply_ts),
-    }
-
-
-def _post_slack_message(
-    payload: dict,
-    *,
-    headers: dict[str, str],
-    fetcher: Callable[..., dict | list],
-    message_kind: str,
-) -> dict:
-    """Post one Slack message with bounded retries and safe diagnostics."""
-    for attempt in range(3):
-        try:
-            response = fetcher(
-                "POST",
-                SLACK_CHAT_POST_MESSAGE_URL,
-                headers=headers,
-                body=payload,
-            )
-        except RuntimeError as exc:
-            if attempt == 2 or not any(
-                marker in str(exc).lower() for marker in (" 408 ", " 429 ", " 500 ", " 502 ", " 503 ", " 504 ")
-            ):
-                raise RuntimeError(f"Slack {message_kind} post failed: {exc}") from exc
-            time.sleep(attempt + 1)
-            continue
-
-        if not isinstance(response, dict):
-            raise RuntimeError(
-                f"Slack {message_kind} post failed: invalid response type={type(response).__name__}"
-            )
-        if response.get("ok"):
-            return response
-
-        error_name = str(response.get("error") or "unknown_error")
-        if error_name in SLACK_RETRYABLE_ERRORS and attempt < 2:
-            time.sleep(attempt + 1)
-            continue
-        raise RuntimeError(
-            f"Slack {message_kind} post failed: error={error_name}"
-        )
-
-    raise RuntimeError(f"Slack {message_kind} post failed: retries exhausted")
+    if not isinstance(reply_response, dict) or not reply_response.get("ok"):
+        raise RuntimeError(f"Slack thread reply failed: {reply_response}")
 
 
 def notify_slack_thread(
@@ -923,15 +858,10 @@ def notify_slack_thread(
 
     slack_bot_token = require_env("SLACK_BOT_TOKEN")
     slack_channel = require_env("SLACK_CHANNEL")
-    result = post_to_slack_thread(
+    post_to_slack_thread(
         slack_bot_token=slack_bot_token,
         slack_channel=slack_channel,
         articles=articles,
-    )
-    print(
-        "slack notification succeeded: "
-        f"channel={result['channel']} "
-        f"parent_ts={result['parent_ts']} reply_ts={result['reply_ts']}"
     )
 
 

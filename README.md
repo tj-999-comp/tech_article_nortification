@@ -115,11 +115,9 @@ run_pipeline.py（Step1 → Step2 → Step3 Slack → Step4 Notion）
 
 ### Slack通知が届かない場合
 
-確認する順序は、(1) GASの時間主導トリガーが存在し、実行履歴で成功しているか、(2) GitHub Actionsの `Daily Qiita Notification` に `workflow_dispatch` の実行が作られているか、(3) workflowの `SLACK_BOT_TOKEN` Secretと `SLACK_CHANNEL` Variableが設定されているか、(4) `Run pipeline` の失敗箇所がQiita・Slack・Notionのどこか、です。
+確認する順序は、(1) GASの時間主導トリガーが存在し、実行履歴で成功しているか、(2) GitHub Actionsの `Daily Qiita Notification` に `workflow_dispatch` の実行が作られているか、(3) workflowの `SLACK_BOT_TOKEN` Secretと `SLACK_CHANNEL` Variableが設定されているか、(4) `Run pipeline` の失敗箇所がQiita・GitHub Models・Slack・Notionのどこか、です。
 
-投稿が成功した場合、`Run pipeline` のログ末尾に `slack notification succeeded: channel=... parent_ts=... reply_ts=...` が出ます。`channel` は実際にSlack APIが受け付けたチャンネルID、`parent_ts` と `reply_ts` は投稿を特定するタイムスタンプです。Slack APIがエラーを返した場合は、エラー名を出してWorkflowを失敗させます。レート制限・一時的な5xx・タイムアウトは各投稿につき最大3回再試行します。
-
-2026-09-12の確認では、9月1日・4日・8日・12日に `workflow_dispatch` が成功し、Slack投稿も成功しています。成功ログがあるのに見えない場合は、Actionsログの `channel` とSlackで確認しているチャンネルが一致しているか、Slack側で対象チャンネルがアーカイブ・非表示になっていないかを確認します。GASの実行履歴とScript Propertiesは、このリポジトリからは確認できません。
+2026-08-29時点の確認では、通知workflowの最後の実行は2026-05-29の成功した `schedule` 実行でした。現在のworkflowはGAS起動の `workflow_dispatch` 専用なので、5月29日以降にActions実行がないことから、まずGASトリガー未実行またはGASからのdispatch失敗を疑います。GASの実行履歴とScript Propertiesは、このリポジトリからは確認できません。
 
 ## 実行ファイルの役割整理（2026-05-18時点）
 
