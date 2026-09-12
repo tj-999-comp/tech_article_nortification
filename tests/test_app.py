@@ -384,7 +384,7 @@ class SlackAndNotionTests(unittest.TestCase):
                 return {"ok": True, "ts": "123.456"}
             return {"ok": True, "ts": f"123.456.{len(calls)}"}
 
-        app.post_to_slack_thread(
+        result = app.post_to_slack_thread(
             slack_bot_token="xoxb-test",
             slack_channel="C12345",
             articles=[self.article, self.article],
@@ -395,6 +395,38 @@ class SlackAndNotionTests(unittest.TestCase):
         self.assertEqual(calls[0]["body"]["channel"], "C12345")
         self.assertNotIn("thread_ts", calls[0]["body"])
         self.assertEqual(calls[1]["body"]["thread_ts"], "123.456")
+        self.assertEqual(
+            result,
+            {"channel": "C12345", "parent_ts": "123.456", "reply_ts": "123.456.2"},
+        )
+
+    def test_post_to_slack_thread_reports_slack_error_without_dumping_payload(self):
+        def fake_fetcher(method, url, **kwargs):
+            return {"ok": False, "error": "not_in_channel"}
+
+        with self.assertRaisesRegex(
+            RuntimeError, r"Slack parent post failed: error=not_in_channel"
+        ) as context:
+            app.post_to_slack_thread(
+                slack_bot_token="xoxb-test",
+                slack_channel="C12345",
+                articles=[self.article],
+                fetcher=fake_fetcher,
+            )
+
+        self.assertNotIn("xoxb-test", str(context.exception))
+
+    def test_post_to_slack_thread_rejects_channel_mismatch(self):
+        def fake_fetcher(method, url, **kwargs):
+            return {"ok": True, "channel": "C99999", "ts": "123.456"}
+
+        with self.assertRaisesRegex(RuntimeError, "channel mismatch"):
+            app.post_to_slack_thread(
+                slack_bot_token="xoxb-test",
+                slack_channel="C12345",
+                articles=[self.article],
+                fetcher=fake_fetcher,
+            )
 
     def test_build_slack_thread_summary_reply_payload_contains_all_articles(self):
         payload = app.build_slack_thread_summary_reply_payload([self.article, self.article])
