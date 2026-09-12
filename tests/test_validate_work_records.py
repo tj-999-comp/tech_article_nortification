@@ -15,8 +15,8 @@ class WorkRecordValidatorTests(unittest.TestCase):
         document = (ROOT / "docs/PORTFOLIO_OPERATIONS.md").read_text(encoding="utf-8")
         for required_text in (
             "enabled: true",
-            "mainの `work-records/**` 更新",
-            "`source_commit_sha` と `target_basename` の2入力だけを使う",
+            "mainへの作業記録pushで自動公開要求",
+            "入力は `source_commit_sha` と `target_basename` の2入力だけにする",
             "publish: true",
             "source_commit_sha",
             "target_basename",
@@ -155,7 +155,7 @@ class WorkRecordValidatorTests(unittest.TestCase):
         self.assertNotIn("repository_dispatch", workflow)
 
     def test_publish_workflow_has_exact_inputs_and_no_contents_write(self):
-        workflow = (ROOT / ".github/workflows/publish-work-record.yml").read_text(
+        workflow = (ROOT / ".github/workflows/request-publish.yml").read_text(
             encoding="utf-8"
         )
         inputs_section = workflow.split("    inputs:\n", 1)[1].split(
@@ -169,7 +169,10 @@ class WorkRecordValidatorTests(unittest.TestCase):
             and line.endswith(":")
         }
         self.assertEqual(input_names, {"source_commit_sha", "target_basename"})
-        self.assertIn("push:\n    branches: [main]\n    paths: ['work-records/**']", workflow)
+        self.assertIn(
+            "push:\n    branches:\n      - main\n    paths:\n      - 'work-records/**'",
+            workflow,
+        )
         self.assertIn("permissions:\n  contents: read", workflow)
         self.assertNotIn("contents: write", workflow)
         self.assertNotIn("repository_dispatch", workflow)

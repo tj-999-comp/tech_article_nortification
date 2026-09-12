@@ -9,8 +9,8 @@
 ## 適用した役割
 ### 実際に担当したRole
 - 入力: `sandbox-pages` の `projects/README.md`、`docs/PORTFOLIO_STANDARD.md`、`work-records/README.md`、`docs/templates/request-publish.yml`、`config/sources.json`。
-- 実施内容: 最新の作業記録必須構成、metadata schema、`a_rendered` の入力範囲、GitHub Appによる公開要求条件を手元の文書・workflow・テストへ反映した。
-- 成果物: 作業記録テンプレート、更新済みREADME・運用手順、公開要求workflow、変更record抽出スクリプト、対応テスト。
+- 実施内容: 最新の作業記録必須構成、metadata schema、`a_rendered` の入力範囲、GitHub Appによる公開要求条件を手元の文書・workflow・テストへ反映した。mainに先行して存在した公開要求workflowを確認し、重複する旧workflowは残さなかった。
+- 成果物: 作業記録テンプレート、更新済みREADME・運用手順、GitHub App専用の公開要求workflow、対応テスト。
 - 検証結果: source-side validator、作業記録validatorテスト、Python構文確認、差分検査に成功した。
 - 未解決事項: 公開側の受入・Pages公開は、今回の作業記録を公開対象にしていないため実施しない。
 - 次工程への引き継ぎ: 新規作業記録は `docs/WORK_RECORD_TEMPLATE.md` の骨格を使い、通常は `publish: false` とする。
@@ -23,7 +23,7 @@
 
 ## 最終結果
 - 解決したこと: 最新のMarkdown・metadataテンプレートを追加し、README・運用手順・workflow・テストを公開側の現行契約へ更新した。
-- 変更ファイル: `docs/WORK_RECORD_TEMPLATE.md`、`README.md`、`docs/PORTFOLIO_OPERATIONS.md`、`.github/workflows/publish-work-record.yml`、`scripts/dev/list_changed_work_record_targets.py`、`tests/test_validate_work_records.py`、本記録とmetadata。
+- 変更ファイル: `docs/WORK_RECORD_TEMPLATE.md`、`README.md`、`docs/PORTFOLIO_OPERATIONS.md`、`.github/workflows/request-publish.yml`、`tests/test_validate_work_records.py`、本記録とmetadata。
 - 検証結果: `python3 -m unittest discover -s tests -v`（31件成功）、`python3 scripts/validate_work_records.py`（19件成功）、Python構文確認、`git diff --check`に成功した。
 - 作業ブランチ: `codex/update-work-record-template`
 - コミット: `2e5a307`（テンプレート・workflow更新の初回commit）

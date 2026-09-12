@@ -40,10 +40,10 @@ Issue 009に記録された2026-08-28の手動E2Eでは、受入、apply、Pages
 ## `publish: true` の扱い
 
 1. Markdownとmetadataを同じcommitに含め、source-side validatorを実行する。
-3. reviewerが内容、秘密情報の不存在、公開先URL、通知の要否を確認する。
-4. metadataの `publish: true` と、同じcommitの40文字SHA、basenameを記録する。
-5. mainへpushして自動要求する。再公開・復旧時は `request-publish.yml` を起動し、入力は `source_commit_sha` と `target_basename` の2つだけにする。
-6. sandbox-pagesの受入結果、Pages URL、provenance、通知結果を確認する。
+2. reviewerが内容、秘密情報の不存在、公開先URL、通知の要否を確認する。
+3. metadataの `publish: true` と、同じcommitの40文字SHA、basenameを記録する。
+4. mainへpushして自動要求する。再公開・復旧時は `request-publish.yml` を起動し、入力は `source_commit_sha` と `target_basename` の2入力だけにする。
+5. sandbox-pagesの受入結果、Pages URL、provenance、通知結果を確認する。
 
 公開要求workflowが対象record以外を変更することは想定しない。受入失敗時は再送せず、失敗理由と固定SHAを確認してから新しい承認を得る。
 
