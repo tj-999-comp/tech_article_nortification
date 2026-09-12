@@ -1,0 +1,11 @@
+schema_version: 1
+title: "Qiita記事の株式会社PRUM所属者除外"
+date: "2026-09-07"
+project_id: tech_article_nortification
+tags:
+  - qiita
+  - filtering
+  - pipeline
+  - testing
+  - handoff
+publish: true
