@@ -7,11 +7,11 @@
 ## 現在の運用状態
 
 - source registry の `tech_article_nortification` は `enabled: true` である。
-- GitHub Actions の `publish-work-record.yml` はmainの `work-records/**` 更新を検出し、`publish: true` の変更対象を自動で受入要求する。
-- 手動起動では `source_commit_sha` と `target_basename` の2入力だけを使う。
-- 作業記録の通常追加では metadata の `publish: false` を使う。
-- `publish: true` は、公開対象として受入要求へ含める明示的な意思表示であり、全件公開のスイッチではない。
-- 既存recordは、後から `publish: true` に変更されない限り、main更新によって再公開しない。
+- GitHub Actions の `request-publish.yml` は、mainへの作業記録pushで自動公開要求し、手動の固定SHA・対象basename指定も受け付ける。
+- 作業記録の通常追加では metadata の `publish: false` を使い、内容確認とreview後に公開対象だけを `publish: true` にする。
+- 複数recordを含むpushはrecordごとにdispatchし、sandbox-pagesのPages反映成功後にSlack通知する。
+
+自動workflowは `enabled` や `publish` を変更しない。公開停止が必要な場合はsandbox-pages側のregistryと受入workflowを停止する。
 
 ## E2E・受入の確認状況
 
@@ -20,9 +20,9 @@ Issue 009に記録された2026-08-28の手動E2Eでは、受入、apply、Pages
 - sandbox-pages受入workflow run: `33158737917`
 - 最終適用commit: `57830bd0738998d2856711ddcdb8078844566199`
 - publication ID: `accept-33158737917-1-tech_article_nortification-work_record_014`
-- 現在のsource registry: `enabled: true`（main更新時の自動受入）
+- 現在のsource registry: `enabled: true`
 
-この証跡は手動E2Eの完了確認に使う。現在の有効化状態と受入条件は、sandbox-pages側のregistryと公開ルールを正本とする。
+この証跡は受入経路の完了確認に使う。公開対象の `publish: true` はrecordごとに内容確認とreviewを経て設定し、切替の実施状況はsandbox-pages側のregistryと人間reviewerの承認記録を正本とする。
 
 ## 公開要求の条件
 
@@ -30,7 +30,7 @@ Issue 009に記録された2026-08-28の手動E2Eでは、受入、apply、Pages
 
 - source registryのrepository、branch、source directory、metadata directory、destination directory、`a_rendered` が正しい。
 - generator ID、ファイル種別、ファイル数・サイズ上限、安全validator、digest/provenance検査が確定している。
-- source registryの受入が有効である。
+- `enabled: true` の受入と、既存成果物がない場合のno-op受入が成功している。
 - 新規record 1件について、固定commitを指定した受入、Pages deploy、想定URL、必要な通知を人間が確認している。
 - provenanceのsource SHA、対象basename、生成物のdigest、deploy結果が相互に一致している。
 - 失敗時に停止し、監査可能な取り下げまたは再実行へ移れることを確認している。
@@ -39,11 +39,10 @@ Issue 009に記録された2026-08-28の手動E2Eでは、受入、apply、Pages
 
 ## `publish: true` の扱い
 
-1. 対象を `work_record_###` の1件に限定する。
-2. Markdownとmetadataを同じcommitに含め、source-side validatorを実行する。
+1. Markdownとmetadataを同じcommitに含め、source-side validatorを実行する。
 3. reviewerが内容、秘密情報の不存在、公開先URL、通知の要否を確認する。
 4. metadataの `publish: true` と、同じcommitの40文字SHA、basenameを記録する。
-5. main pushの自動検出、または `publish-work-record.yml` の `source_commit_sha`、`target_basename` による手動起動を使う。
+5. mainへpushして自動要求する。再公開・復旧時は `request-publish.yml` を起動し、入力は `source_commit_sha` と `target_basename` の2つだけにする。
 6. sandbox-pagesの受入結果、Pages URL、provenance、通知結果を確認する。
 
 公開要求workflowが対象record以外を変更することは想定しない。受入失敗時は再送せず、失敗理由と固定SHAを確認してから新しい承認を得る。
@@ -58,14 +57,14 @@ git diff --check
 git status --short
 ```
 
-そのcommitのSHAを確認する。main pushならworkflowが対象を自動検出し、手動起動なら次の2入力を指定する。
+そのcommitをmainへ反映すると、GitHub Actionsの `Request work-record publish` が変更recordを自動選択する。
 
 ```text
 source_commit_sha: <対象commitの40文字SHA>
 target_basename:   work_record_###
 ```
 
-Actionsが指定SHAをcheckoutしてrecordを再検証し、成功した場合だけsandbox-pagesの受入workflowへdispatchする。dispatch認証は、`PUBLISH_APP_ID`と`PUBLISH_APP_PRIVATE_KEY`で`sandbox-pages`だけを対象とする短期GitHub App installation tokenを発行する。source側でsandbox-pagesをcheckout・編集・commit・pushしたり、Contents write tokenを使ったりしない。
+Actionsが指定SHAをcheckoutしてrecordを再検証し、成功した場合だけsandbox-pagesの受入workflowへdispatchする。dispatch認証は、`PUBLISH_APP_ID`と`PUBLISH_APP_PRIVATE_KEY`から`sandbox-pages`だけを対象とする短期GitHub App installation tokenを発行する。source側でsandbox-pagesをcheckout・編集・commit・pushしたり、Contents write tokenを使ったりしない。
 
 source repositoryのActions Secretは次の名前を使う。
 
@@ -109,6 +108,6 @@ source側から渡す公開要求入力は `project_id`、`source_commit_sha`、
 ## 参照
 
 - [source-side validator](../scripts/validate_work_records.py)
-- [公開要求workflow](../.github/workflows/publish-work-record.yml)
+- [公開要求workflow](../.github/workflows/request-publish.yml)
 - [sandbox-pages公開ルール](https://github.com/tj-999-comp/sandbox-pages/blob/main/projects/README.md)
 - [Issue 009の手動E2E証跡](../Issues/Issue_009.md)
