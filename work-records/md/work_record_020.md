@@ -24,11 +24,11 @@
 ## 最終結果
 - 解決したこと: Slack投稿の成功・失敗を安全な診断情報付きで判定し、一時的なSlack API障害を各投稿最大3回再試行するようにした。
 - 変更ファイル: `pipeline_steps.py`、`tests/test_app.py`、`README.md`、本作業記録。
-- 検証結果: `python3 -m unittest discover -s tests -v`（33件成功）。実Workflow検証結果はPR・マージ後に追記する。
+- 検証結果: `python3 -m unittest discover -s tests -v`（33件成功）。実Workflow検証はマージ後に行う。
 - 作業ブランチ: `codex/fix-slack-notification`
-- コミット: 作成予定
-- PR: 作成予定
-- PRレビュー・CI: 作成予定
+- コミット: `0d7855b`（Slack通知修正）
+- PR: [#32 Slack通知の到達確認と一時障害対策](https://github.com/tj-999-comp/tech_article_nortification/pull/32)
+- PRレビュー・CI: `validate` 成功（GitHub Actions run `34664902080`）
 - 未解決事項: Slack側でユーザーが確認しているチャンネルとActionsログの投稿先IDが異なる場合は、Slackの `SLACK_CHANNEL` Variableを正しいチャンネルIDへ更新する必要がある。
 - 次アクション: コミット、PR、CI確認、マージ、実Workflowの手動実行を行う。
 
