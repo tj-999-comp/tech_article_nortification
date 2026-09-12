@@ -1,0 +1,10 @@
+schema_version: 1
+title: "作業記録公開時Slack通知のpublishフラグ修正"
+date: "2026-09-12"
+project_id: tech_article_nortification
+tags:
+  - slack
+  - work-records
+  - github-actions
+  - portfolio
+publish: true

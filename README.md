@@ -46,6 +46,8 @@ python3 scripts/validate_work_records.py --require-publish-false
 
 [request-publish.yml](.github/workflows/request-publish.yml)は、mainへの作業記録pushを自動検出し、変更された全recordを公開要求します。作業記録本文の最新テンプレートは[作業記録テンプレート](docs/WORK_RECORD_TEMPLATE.md)にまとめています。再公開や復旧時は、固定SHAと対象basenameを指定して手動起動できます。
 
+metadataの `publish: false` は下書き・非公開を意味し、mainへpushしても公開側へのdispatchやSlack通知は発生しません。公開とSlack通知まで必要な作業記録だけ、内容確認後に `publish: true` を設定します。
+
 - `source_commit_sha`: 40桁の固定commit SHA
 - `target_basename`: `work_record_###`形式の単一basename
 
