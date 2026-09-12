@@ -4,7 +4,7 @@
 `tj-999-comp/sandbox-pages` へ公開するときの判断基準、実行手順、停止手順を定める。
 公開処理は生成元と公開先にまたがるため、片側の確認だけで運用状態を変更しない。
 
-## 現在の安全状態
+## 現在の運用状態
 
 - source registry の `tech_article_nortification` は `enabled: true` である。
 - GitHub Actions の `request-publish.yml` は、mainへの作業記録pushで自動公開要求し、手動の固定SHA・対象basename指定も受け付ける。
@@ -24,9 +24,9 @@ Issue 009に記録された2026-08-28の手動E2Eでは、受入、apply、Pages
 
 この証跡は受入経路の完了確認に使う。公開対象の `publish: true` はrecordごとに内容確認とreviewを経て設定し、切替の実施状況はsandbox-pages側のregistryと人間reviewerの承認記録を正本とする。
 
-## `enabled: true` に変更できる条件
+## 公開要求の条件
 
-次の全項目を確認し、確認者と日時をIssueまたは作業記録に残してから、sandbox-pages側のsource registryを変更する。
+次の全項目を確認し、確認者と日時をIssueまたは作業記録に残す。
 
 - source registryのrepository、branch、source directory、metadata directory、destination directory、`a_rendered` が正しい。
 - generator ID、ファイル種別、ファイル数・サイズ上限、安全validator、digest/provenance検査が確定している。
@@ -35,15 +35,15 @@ Issue 009に記録された2026-08-28の手動E2Eでは、受入、apply、Pages
 - provenanceのsource SHA、対象basename、生成物のdigest、deploy結果が相互に一致している。
 - 失敗時に停止し、監査可能な取り下げまたは再実行へ移れることを確認している。
 
-切替後も、対象record、固定commit、確認者を記録する。既存10件を有効化のタイミングで一括公開しない。
+対象record、固定commit、確認者を記録する。既存recordを一括公開しない。
 
 ## `publish: true` の扱い
 
 1. Markdownとmetadataを同じcommitに含め、source-side validatorを実行する。
-3. reviewerが内容、秘密情報の不存在、公開先URL、通知の要否を確認する。
-4. metadataの `publish: true` と、同じcommitの40文字SHA、basenameを記録する。
-5. mainへpushして自動要求する。再公開・復旧時は `request-publish.yml` を起動し、入力は `source_commit_sha` と `target_basename` の2つだけにする。
-6. sandbox-pagesの受入結果、Pages URL、provenance、通知結果を確認する。
+2. reviewerが内容、秘密情報の不存在、公開先URL、通知の要否を確認する。
+3. metadataの `publish: true` と、同じcommitの40文字SHA、basenameを記録する。
+4. mainへpushして自動要求する。再公開・復旧時は `request-publish.yml` を起動し、入力は `source_commit_sha` と `target_basename` の2入力だけにする。
+5. sandbox-pagesの受入結果、Pages URL、provenance、通知結果を確認する。
 
 公開要求workflowが対象record以外を変更することは想定しない。受入失敗時は再送せず、失敗理由と固定SHAを確認してから新しい承認を得る。
 
@@ -64,7 +64,7 @@ source_commit_sha: <対象commitの40文字SHA>
 target_basename:   work_record_###
 ```
 
-Actionsが指定SHAをcheckoutしてrecordを再検証し、成功した場合だけsandbox-pagesの受入workflowへdispatchする。dispatch認証は、`PUBLISH_APP_ID`と`PUBLISH_APP_PRIVATE_KEY`が両方設定されている場合に、`actions/create-github-app-token@v3`で`sandbox-pages`だけを対象とする短期tokenを発行する。App設定が未登録の場合だけ移行用の`SANDBOX_PAGES_DISPATCH_TOKEN`へfallbackする。source側でsandbox-pagesをcheckout・編集・commit・pushしたり、Contents write tokenを使ったりしない。
+Actionsが指定SHAをcheckoutしてrecordを再検証し、成功した場合だけsandbox-pagesの受入workflowへdispatchする。dispatch認証は、`PUBLISH_APP_ID`と`PUBLISH_APP_PRIVATE_KEY`から`sandbox-pages`だけを対象とする短期GitHub App installation tokenを発行する。source側でsandbox-pagesをcheckout・編集・commit・pushしたり、Contents write tokenを使ったりしない。
 
 source repositoryのActions Secretは次の名前を使う。
 
@@ -73,7 +73,7 @@ PUBLISH_APP_ID
 PUBLISH_APP_PRIVATE_KEY
 ```
 
-App tokenはworkflow実行時に発行され、保存・ログ出力しない。Appが未設定の移行期間だけ、旧 `SANDBOX_PAGES_DISPATCH_TOKEN` を使用する。
+App tokenはworkflow実行時に発行され、保存・ログ出力しない。旧 `SANDBOX_PAGES_DISPATCH_TOKEN` は使用しない。
 
 ## 緊急停止
 

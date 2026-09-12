@@ -124,29 +124,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - name: Select dispatch authentication
-        id: auth
-        env:
-          PUBLISH_APP_ID: ${{ secrets.PUBLISH_APP_ID || vars.PUBLISH_APP_ID }}
-          PUBLISH_APP_PRIVATE_KEY: ${{ secrets.PUBLISH_APP_PRIVATE_KEY }}
-          PAT_TOKEN: ${{ secrets.SANDBOX_PAGES_DISPATCH_TOKEN }}
-        run: |
-          set -euo pipefail
-          if [[ -n "$PUBLISH_APP_ID" || -n "$PUBLISH_APP_PRIVATE_KEY" ]]; then
-            [[ -n "$PUBLISH_APP_ID" && -n "$PUBLISH_APP_PRIVATE_KEY" ]]
-            echo "use_app=true" >> "$GITHUB_OUTPUT"
-            echo "auth_mode=github-app" >> "$GITHUB_OUTPUT"
-          elif [[ -n "$PAT_TOKEN" ]]; then
-            echo "use_app=false" >> "$GITHUB_OUTPUT"
-            echo "auth_mode=fine-grained-pat" >> "$GITHUB_OUTPUT"
-          else
-            echo "Configure GitHub App credentials or SANDBOX_PAGES_DISPATCH_TOKEN" >&2
-            exit 1
-          fi
-
       - name: Create GitHub App installation token
         id: app-token
-        if: steps.auth.outputs.use_app == 'true'
         uses: actions/create-github-app-token@v3
         with:
           app-id: ${{ secrets.PUBLISH_APP_ID || vars.PUBLISH_APP_ID }}
@@ -157,9 +136,7 @@ jobs:
 
       - name: Send requests to sandbox-pages
         env:
-          APP_TOKEN: ${{ steps.app-token.outputs.token }}
-          PAT_TOKEN: ${{ secrets.SANDBOX_PAGES_DISPATCH_TOKEN }}
-          AUTH_MODE: ${{ steps.auth.outputs.auth_mode }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
           PROJECT_ID: ${{ env.PROJECT_ID }}
           PUBLISH_REPOSITORY: ${{ env.PUBLISH_REPOSITORY }}
           PUBLISH_WORKFLOW: ${{ env.PUBLISH_WORKFLOW }}
@@ -168,9 +145,7 @@ jobs:
           TARGET_BASENAMES_JSON: ${{ needs.prepare.outputs.target_basenames }}
         run: |
           set -euo pipefail
-          if [[ -n "$APP_TOKEN" ]]; then export GH_TOKEN="$APP_TOKEN"; else export GH_TOKEN="$PAT_TOKEN"; fi
           test -n "$GH_TOKEN"
-          echo "Dispatch authentication: $AUTH_MODE"
           while IFS= read -r target_basename; do
             completed=false
             for attempt in $(seq 1 20); do

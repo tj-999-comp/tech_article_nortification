@@ -14,9 +14,10 @@ class WorkRecordValidatorTests(unittest.TestCase):
     def test_portfolio_operations_document_covers_manual_safety_controls(self):
         document = (ROOT / "docs/PORTFOLIO_OPERATIONS.md").read_text(encoding="utf-8")
         for required_text in (
-            "enabled: false",
+            "enabled: true",
+            "mainへの作業記録pushで自動公開要求",
+            "入力は `source_commit_sha` と `target_basename` の2入力だけにする",
             "publish: true",
-            "既存10件をbootstrapで無条件に再公開・再通知しない",
             "source_commit_sha",
             "target_basename",
             "緊急停止",
@@ -26,6 +27,7 @@ class WorkRecordValidatorTests(unittest.TestCase):
             "Contents write",
             "33158737917",
             "accept-33158737917-1-tech_article_nortification-work_record_014",
+            "旧 `SANDBOX_PAGES_DISPATCH_TOKEN` は使用しない",
         ):
             self.assertIn(required_text, document)
 
@@ -153,7 +155,7 @@ class WorkRecordValidatorTests(unittest.TestCase):
         self.assertNotIn("repository_dispatch", workflow)
 
     def test_publish_workflow_has_exact_inputs_and_no_contents_write(self):
-        workflow = (ROOT / ".github/workflows/publish-work-record.yml").read_text(
+        workflow = (ROOT / ".github/workflows/request-publish.yml").read_text(
             encoding="utf-8"
         )
         inputs_section = workflow.split("    inputs:\n", 1)[1].split(
@@ -166,22 +168,24 @@ class WorkRecordValidatorTests(unittest.TestCase):
             and not line.startswith("        ")
             and line.endswith(":")
         }
-        self.assertEqual(
-            input_names, {"project_id", "source_commit_sha", "target_basename"}
+        self.assertEqual(input_names, {"source_commit_sha", "target_basename"})
+        self.assertIn(
+            "push:\n    branches:\n      - main\n    paths:\n      - 'work-records/**'",
+            workflow,
         )
         self.assertIn("permissions:\n  contents: read", workflow)
         self.assertNotIn("contents: write", workflow)
         self.assertNotIn("repository_dispatch", workflow)
         self.assertIn("accept-source.yml", workflow)
         self.assertIn("persist-credentials: false", workflow)
-        self.assertIn("PUBLISH_APP_ID", workflow)
+        self.assertIn("PUBLISH_APP_ID || vars.PUBLISH_APP_ID", workflow)
         self.assertIn("PUBLISH_APP_PRIVATE_KEY", workflow)
         self.assertIn("actions/create-github-app-token@v3", workflow)
         self.assertIn("owner: tj-999-comp", workflow)
         self.assertIn("repositories: sandbox-pages", workflow)
         self.assertIn("permission-actions: write", workflow)
-        self.assertIn("Dispatch authentication", workflow)
-        self.assertIn("SANDBOX_PAGES_DISPATCH_TOKEN", workflow)
+        self.assertNotIn("project_id:", inputs_section)
+        self.assertNotIn("SANDBOX_PAGES_DISPATCH_TOKEN", workflow)
 
 
 if __name__ == "__main__":

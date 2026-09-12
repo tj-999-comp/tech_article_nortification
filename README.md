@@ -28,9 +28,9 @@ work-records/
 
 既存の`Issues/Issue_###.md`は課題資料であり、公開用作業記録ではありません。内容の確認とmetadata作成を行わずに、自動公開対象へ含めないでください。
 
-公開要求時は、検証済みcommitの固定SHAと対象basenameを使い、公開リポジトリのworkflowへ`project_id`、`source_commit_sha`、`target_basename`の3入力を渡します。公開リポジトリをcheckout・編集・commit・pushする権限やtokenは、このリポジトリのworkflowへ渡しません。
+作業記録本文の最新テンプレートは[作業記録テンプレート](docs/WORK_RECORD_TEMPLATE.md)にまとめています。公開要求時は、main更新で変更された`publish: true`のrecordを自動検出します。手動起動では検証済みcommitの固定SHAと対象basenameの2入力だけを指定し、`project_id`と公開先はworkflowの固定設定から決定します。公開リポジトリをcheckout・編集・commit・pushする権限やtokenは、このリポジトリのworkflowへ渡しません。
 
-公開契約の正本は、[sandbox-pagesの公開ルール](https://github.com/tj-999-comp/sandbox-pages/blob/main/projects/README.md)と[共通標準](https://github.com/tj-999-comp/sandbox-pages/blob/main/docs/PORTFOLIO_STANDARD.md)です。sandbox-pages側の受入・`a_rendered` renderer・手動E2Eが完了するまで、sourceは無効状態として扱います。
+公開契約の正本は、[sandbox-pagesの公開ルール](https://github.com/tj-999-comp/sandbox-pages/blob/main/projects/README.md)と[共通標準](https://github.com/tj-999-comp/sandbox-pages/blob/main/docs/PORTFOLIO_STANDARD.md)です。現在のsource registryでは`tech_article_nortification`が`enabled: true`で登録され、main更新時の受入が有効です。
 
 ### 作業記録のsource-side検証
 
@@ -44,9 +44,8 @@ python3 scripts/validate_work_records.py --require-publish-false
 
 ### 公開要求workflow
 
-[request-publish.yml](.github/workflows/request-publish.yml)は、mainへの作業記録pushを自動検出し、変更された全recordを公開要求します。再公開や復旧時は、次の3入力で手動起動できます。
+[request-publish.yml](.github/workflows/request-publish.yml)は、mainへの作業記録pushを自動検出し、変更された全recordを公開要求します。作業記録本文の最新テンプレートは[作業記録テンプレート](docs/WORK_RECORD_TEMPLATE.md)にまとめています。再公開や復旧時は、固定SHAと対象basenameを指定して手動起動できます。
 
-- `project_id`: `tech_article_nortification`との完全一致
 - `source_commit_sha`: 40桁の固定commit SHA
 - `target_basename`: `work_record_###`形式の単一basename
 
