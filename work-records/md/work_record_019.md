@@ -26,9 +26,9 @@
 - 変更ファイル: `docs/WORK_RECORD_TEMPLATE.md`、`README.md`、`docs/PORTFOLIO_OPERATIONS.md`、`.github/workflows/publish-work-record.yml`、`scripts/dev/list_changed_work_record_targets.py`、`tests/test_validate_work_records.py`、本記録とmetadata。
 - 検証結果: `python3 -m unittest discover -s tests -v`（31件成功）、`python3 scripts/validate_work_records.py`（19件成功）、Python構文確認、`git diff --check`に成功した。
 - 作業ブランチ: `codex/update-work-record-template`
-- コミット: 作成後に確定
-- PR: 作成後に確定
-- PRレビュー・CI: PR作成後に確認
+- コミット: `2e5a307`（テンプレート・workflow更新の初回commit）
+- PR: [#31 docs: align work record template with public standard](https://github.com/tj-999-comp/tech_article_nortification/pull/31)
+- PRレビュー・CI: PR #31作成済み。CI確認中。
 - 未解決事項: なし（公開対象外のためPages公開確認は含めない）。
 - 次アクション: PRのCI・レビュー結果を確認し、mergeする。
 
